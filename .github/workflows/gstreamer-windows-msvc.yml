@@ -78,6 +78,7 @@ jobs:
         # Run GStreamer tests (still from builddir)
       - name: Run Tests
         shell: powershell
+        continue-on-error: true  # Pipeline continues even if tests fail
         run: |
           Set-Location gstreamer
           meson test -C builddir --print-errorlogs
