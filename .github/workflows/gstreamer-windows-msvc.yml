@@ -48,11 +48,11 @@ jobs:
         run: |
           Set-Location gstreamer
           meson setup builddir `
-            -Dbase=enabled `          # gst-plugins-base (videoconvert, filesink)
-            -Dgood=enabled `          # gst-plugins-good (mp4mux)
-            -Dugly=enabled `          # gst-plugins-ugly (x264enc)
-            -Dbad=enabled `           # gst-plugins-bad (dx9screencapsrc)
-            -Dbad:directx=enabled `   # Ensure DirectX plugins in bad
+            -Dbase=enabled `
+            -Dgood=enabled `
+            -Dugly=enabled `
+            -Dbad=enabled `
+            -Dbad:directx=enabled `
             -Dpython=disabled `
             -Ddevtools=disabled `
             -Ddoc=disabled `
