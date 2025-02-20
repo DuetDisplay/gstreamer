@@ -42,8 +42,8 @@ jobs:
         run: |
           Set-Location gstreamer
           meson setup builddir `
-            -Dgst-plugins-ugly=enabled `
-            -Dgst-plugins-bad=enabled `
+            -Dugly=enabled `
+            -Dbad=enabled `
             -Dpython=disabled `
             -Ddevtools=disabled `
             -Ddoc=disabled `
