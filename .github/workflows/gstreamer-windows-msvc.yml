@@ -51,7 +51,8 @@ jobs:
             --backend=ninja `
             --buildtype=release `
             -Dauto_features=auto `
-            -Dtests=enabled
+            -Dtests=enabled `
+            --prefix="$PWD/install-dir"
 
       # Build GStreamer
       - name: Build GStreamer
