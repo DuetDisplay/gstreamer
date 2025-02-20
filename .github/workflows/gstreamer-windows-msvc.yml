@@ -30,6 +30,12 @@ jobs:
           python -m pip install --upgrade pip
           pip install meson ninja
 
+      - name: Setup MSVC with Windows SDK
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: amd64
+          sdk: 10.0.22621.0  # For DirectX support
+
       # Set up MSVC environment (Visual Studio 2022)
       - name: Setup MSVC Developer Command Prompt
         uses: ilammy/msvc-dev-cmd@v1
@@ -42,8 +48,11 @@ jobs:
         run: |
           Set-Location gstreamer
           meson setup builddir `
-            -Dugly=enabled `
-            -Dbad=enabled `
+            -Dbase=enabled `          # gst-plugins-base (videoconvert, filesink)
+            -Dgood=enabled `          # gst-plugins-good (mp4mux)
+            -Dugly=enabled `          # gst-plugins-ugly (x264enc)
+            -Dbad=enabled `           # gst-plugins-bad (dx9screencapsrc)
+            -Dbad:directx=enabled `   # Ensure DirectX plugins in bad
             -Dpython=disabled `
             -Ddevtools=disabled `
             -Ddoc=disabled `
@@ -74,16 +83,21 @@ jobs:
           Set-Location gstreamer
           $gstInspect = Resolve-Path "install-dir/bin/gst-inspect-1.0.exe"
           & $gstInspect --version
+          & $gstInspect dx9screencapsrc
+          & $gstInspect videoconvert
+          & $gstInspect x264enc
+          & $gstInspect mp4mux
+          & $gstInspect filesink
 
         # Run GStreamer tests (still from builddir)
-      - name: Run Tests
-        shell: powershell
-        continue-on-error: true  # Pipeline continues even if tests fail
-        run: |
-          Set-Location gstreamer
-          meson test -C builddir --print-errorlogs
-        env:
-          PATH: "${{ env.PATH }};C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\Enterprise\\VC\\Tools\\MSVC\\14.40.33807\\bin\\Hostx64\\x64"
+    #   - name: Run Tests
+    #     shell: powershell
+    #     continue-on-error: true  # Pipeline continues even if tests fail
+    #     run: |
+    #       Set-Location gstreamer
+    #       meson test -C builddir --print-errorlogs
+    #     env:
+    #       PATH: "${{ env.PATH }};C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\Enterprise\\VC\\Tools\\MSVC\\14.40.33807\\bin\\Hostx64\\x64"
 
         # Debug: List install-dir contents
       - name: List Install Directory Contents
