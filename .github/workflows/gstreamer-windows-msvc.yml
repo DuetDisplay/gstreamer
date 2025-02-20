@@ -65,7 +65,8 @@ jobs:
         shell: powershell
         run: |
           Set-Location gstreamer
-          & "builddir\gstreamer\tools\gst-inspect-1.0.exe" --version
+          $gstInspect = Resolve-Path "builddir\gstreamer\tools\gst-inspect-1.0.exe"
+          & $gstInspect --version
 
       # Run GStreamer tests
       - name: Run Tests
