@@ -59,29 +59,45 @@ jobs:
         run: |
           Set-Location gstreamer
           ninja -C builddir
-
-      # Verify basic functionality
-      - name: Verify Build
+      - name: Install GStreamer
         shell: powershell
         run: |
           Set-Location gstreamer
-          $gstInspect = Resolve-Path "builddir\gstreamer\tools\gst-inspect-1.0.exe"
+          ninja -C builddir install
+          if ($LASTEXITCODE -ne 0) { throw "Install failed with exit code $LASTEXITCODE" }
+
+      # Verify installed tools
+      - name: Verify Install
+        shell: powershell
+        run: |
+          Set-Location gstreamer
+          $gstInspect = Resolve-Path "install-dir/bin/gst-inspect-1.0.exe"
           & $gstInspect --version
 
-      # Run GStreamer tests
+        # Run GStreamer tests (still from builddir)
       - name: Run Tests
         shell: powershell
         run: |
           Set-Location gstreamer
           meson test -C builddir --print-errorlogs
         env:
-          # Ensure MSVC tools are in PATH for tests
           PATH: "${{ env.PATH }};C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\Enterprise\\VC\\Tools\\MSVC\\14.40.33807\\bin\\Hostx64\\x64"
 
-      # Upload build artifacts (even if tests fail)
+        # Debug: List install-dir contents
+      - name: List Install Directory Contents
+        shell: powershell
+        run: |
+          Set-Location gstreamer
+          if (Test-Path "install-dir") {
+            Get-ChildItem "install-dir" -Recurse | ForEach-Object { $_.FullName }
+          } else {
+            Write-Error "install-dir not found!"
+          }
+
+        # Upload installed files as artifact
       - name: Upload Build Artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: gstreamer-windows-msvc
-          path: gstreamer/builddir/
+          path: gstreamer/install-dir/
