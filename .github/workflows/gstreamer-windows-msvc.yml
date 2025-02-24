@@ -52,6 +52,7 @@ jobs:
             -Dgood=enabled `
             -Dugly=enabled `
             -Dbad=enabled `
+            -Dbad:openh264=enabled `
             -Dbad:directx=enabled `
             -Dpython=disabled `
             -Ddevtools=disabled `
