@@ -48,8 +48,9 @@ jobs:
       - name: Install oneVPL SDK
         run: nuget install onevpl.devel.win-x64 -OutputDirectory C:\oneVPL
   
-      - name: Set Environment Variables
-        run: echo "MFX_HOME=C:\oneVPL\onevpl.devel.win-x64.2023.1.0.43419\lib\native" >> $GITHUB_ENV
+      - name: Set PKG_CONFIG_PATH Environment Variable
+        run: echo "PKG_CONFIG_PATH=C:\oneVPL\onevpl.devel.win-x64.2023.1.0.43419\lib\native\win-x64\pkgconfig" >> $GITHUB_ENV
+      
 
       # Configure Meson build
       - name: Configure Meson
