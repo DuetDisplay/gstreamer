@@ -52,9 +52,10 @@ jobs:
       - name: Configure Meson
         shell: powershell
         env:
-          PKG_CONFIG_PATH: ${{ github.workspace }}\onevpl.devel.win-x64.2023.1.0.43419\lib\native\win-x64\pkgconfig:C:\hostedtoolcache\windows\Python\3.13.2\x64\lib\pkgconfig
+          PKG_CONFIG_PATH: ${{ github.workspace }}\onevpl.devel.win-x64.2023.1.0.43419\lib\native\win-x64\pkgconfig;C:\hostedtoolcache\windows\Python\3.13.2\x64\lib\pkgconfig
         run: |
           Set-Location gstreamer
+          pkg-config --modversion vpl
           meson setup builddir `
             -Dbase=enabled `
             -Dgood=enabled `
