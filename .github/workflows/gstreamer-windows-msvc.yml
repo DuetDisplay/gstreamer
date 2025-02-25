@@ -46,10 +46,10 @@ jobs:
         run: choco install nuget.commandline
   
       - name: Install oneVPL SDK
-        run: nuget install onevpl.devel.win-x64 -OutputDirectory C:\oneVPL
-  
+        run: nuget install onevpl -OutputDirectory C:\oneVPL
+
       - name: Set Environment Variables
-        run: echo "ONEVPL_DIR=C:\oneVPL\onevpl.devel.win-x64.2023.1.0.43419" >> $GITHUB_ENV
+        run: echo "MFX_HOME=C:\oneVPL\onevpl" >> $GITHUB_ENV
 
       # Configure Meson build
       - name: Configure Meson
