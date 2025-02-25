@@ -65,7 +65,6 @@ jobs:
             -Dgpl=enabled `
             -Dgst-plugins-bad:msdk=enabled `
             -Dgst-plugins-bad:nvcodec=enabled `
-            -Dvaapi=enabled `
             -Dpython=disabled `
             -Ddevtools=disabled `
             -Ddoc=disabled `
