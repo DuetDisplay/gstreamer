@@ -54,8 +54,8 @@ jobs:
             -Dbad=enabled `
             -Dbad:directx=enabled `
             -Dgpl=enabled `
-            -Dnvcodec=enabled `
-            -Dmsdk=enabled `
+            -Dgst-plugins-bad:msdk=enabled `
+            -Dgst-plugins-bad:nvcodec=enabled `
             -Dvaapi=enabled `
             -Dpython=disabled `
             -Ddevtools=disabled `
