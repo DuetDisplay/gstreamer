@@ -16,6 +16,11 @@ jobs:
           repository: GStreamer/gstreamer
           submodules: recursive
           path: gstreamer
+      
+      - name: Set Up Visual Studio Environment
+        uses: microsoft/setup-msbuild@v1.1
+        with:
+          vs-version: '16.0'
 
       - name: Set Up Perl
         uses: shogo82148/actions-setup-perl@v1
