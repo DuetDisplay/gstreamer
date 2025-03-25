@@ -17,6 +17,34 @@ jobs:
           submodules: recursive
           path: gstreamer
 
+      - name: Set Up Perl
+        uses: shogo82148/actions-setup-perl@v1
+        with:
+          perl-version: '5.32'
+
+      - name: Install NASM
+        uses: ilammy/setup-nasm@v1
+
+      - name: Download OpenSSL Source
+        run: |
+          Invoke-WebRequest -Uri https://www.openssl.org/source/openssl-1.1.1l.tar.gz -OutFile openssl-1.1.1l.tar.gz
+          tar -xzf openssl-1.1.1l.tar.gz
+
+      - name: Configure OpenSSL
+        run: |
+          cd openssl-1.1.1l
+          perl Configure VC-WIN64A --prefix=${{ github.workspace }}\openssl-output
+
+      - name: Build OpenSSL
+        run: |
+          cd openssl-1.1.1l
+          nmake
+
+      - name: Install OpenSSL
+        run: |
+          cd openssl-1.1.1l
+          nmake install
+
       # Set up Python
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -87,6 +115,16 @@ jobs:
           Set-Location gstreamer
           ninja -C builddir install
           if ($LASTEXITCODE -ne 0) { throw "Install failed with exit code $LASTEXITCODE" }
+      - name: Copy DLL Files to install-dir
+        shell: pwsh
+        run: |
+          # Ensure the destination directory exists
+          $destination = "install-dir/bin/"
+          if (-Not (Test-Path -Path $destination)) {
+            New-Item -ItemType Directory -Path $destination
+          }
+          # Copy all DLL files from the source directory to the destination
+          Copy-Item -Path "${{ github.workspace }}/openssl-output/bin/libcrypto-1_1-x64.dll" -Destination $destination -Force
 
       # Verify installed tools
       - name: Verify Install
@@ -100,16 +138,6 @@ jobs:
           & $gstInspect x264enc
           & $gstInspect mp4mux
           & $gstInspect filesink
-
-        # Run GStreamer tests (still from builddir)
-    #   - name: Run Tests
-    #     shell: powershell
-    #     continue-on-error: true  # Pipeline continues even if tests fail
-    #     run: |
-    #       Set-Location gstreamer
-    #       meson test -C builddir --print-errorlogs
-    #     env:
-    #       PATH: "${{ env.PATH }};C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\Enterprise\\VC\\Tools\\MSVC\\14.40.33807\\bin\\Hostx64\\x64"
 
         # Debug: List install-dir contents
       - name: List Install Directory Contents
@@ -130,10 +158,11 @@ jobs:
           name: gstreamer-windows-msvc
           path: gstreamer/install-dir/
 
-      - name: Package into ZIP
+      - 
+        name: Package into ZIP
+        shell: pwsh
         run: |
-          cd gstreamer/install-dir/
-          zip -r gstreamer-windows-msvc.zip *
+          Compress-Archive -Path gstreamer/install-dir/* -DestinationPath gstreamer-windows-msvc.zip
 
       - name: Upload Release ZIP
         uses: softprops/action-gh-release@v1
