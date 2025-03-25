@@ -129,3 +129,16 @@ jobs:
         with:
           name: gstreamer-windows-msvc
           path: gstreamer/install-dir/
+
+      - name: Package into ZIP
+        run: |
+          cd gstreamer/install-dir/
+          zip -r gstreamer-windows-msvc.zip *
+
+      - name: Upload Release ZIP
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: gstreamer/install-dir/gstreamer-windows-msvc.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
