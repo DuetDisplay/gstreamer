@@ -130,6 +130,6 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ github.ref_name }}
-          files: gstreamer/install-dir/gstreamer-windows-msvc.zip
+          files: gstreamer-windows-msvc.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
