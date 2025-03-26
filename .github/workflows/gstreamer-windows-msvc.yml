@@ -17,6 +17,12 @@ jobs:
           submodules: recursive
           path: gstreamer
 
+      - name: Download Dependencies CLI
+        shell: powershell
+        run: |
+          Invoke-WebRequest -Uri https://github.com/lucasg/Dependencies/releases/download/v1.11.0/Dependencies_x64_Release.zip -OutFile Dependencies.zip
+          Expand-Archive Dependencies.zip -DestinationPath Dependencies
+
       # Set up Python
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -100,6 +106,33 @@ jobs:
           & $gstInspect x264enc
           & $gstInspect mp4mux
           & $gstInspect filesink
+
+      - name: Copy All Required DLLs Using Dependencies CLI
+        shell: pwsh
+        run: |
+          $depsExe = "$(pwd)\Dependencies\Dependencies.exe"
+          $targetDir = "$(pwd)\gstreamer\install-dir\bin"
+          $outputDir = "$(pwd)\gstreamer\install-dir\deps"
+      
+          mkdir $outputDir | Out-Null
+      
+          $executables = Get-ChildItem $targetDir -Include *.exe, *.dll -Recurse
+      
+          foreach ($exe in $executables) {
+            & "$depsExe" -modules $exe.FullName -json > "$exe.FullName.deps.json"
+      
+            $json = Get-Content "$exe.FullName.deps.json" | ConvertFrom-Json
+            foreach ($dep in $json.dependencies) {
+              $dllName = Split-Path $dep.path -Leaf
+              $sourcePath = $dep.path
+              $destPath = Join-Path $targetDir $dllName
+      
+              if (!(Test-Path $destPath) -and (Test-Path $sourcePath)) {
+                Copy-Item $sourcePath -Destination $targetDir -Force
+                Write-Host "Copied: $dllName"
+              }
+            }
+          }        
 
         # Debug: List install-dir contents
       - name: List Install Directory Contents
