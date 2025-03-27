@@ -72,8 +72,9 @@ jobs:
           gst-inspect-1.0 vtdec || true
 
       - name: Package build artifacts
-        run: zip -r gstreamer-macos-universal.zip install-dir
-        # Create a ZIP archive of the install directory. This will be uploaded and also attached to the release.
+        run: | 
+          cd install-dir
+          zip -r ../gstreamer-macos-universal.zip .
 
       - name: Upload install directory artifact
         uses: actions/upload-artifact@v4
