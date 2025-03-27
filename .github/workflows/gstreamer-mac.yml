@@ -1,0 +1,114 @@
+name: Build and Test GStreamer on macOS
+
+# Trigger on pushes to tags (for release) or manually
+on:
+  push:
+    branches:
+      - duet-main
+
+jobs:
+  build:
+    runs-on: macos-latest  # Use latest macOS runner (for Windows use 'windows-latest' and adapt steps)
+    steps:
+      - name: Checkout GStreamer source
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive  # Recursively fetch submodules to get all plugin modules&#8203;:contentReference[oaicite:0]{index=0}
+
+      - name: Install Homebrew dependencies
+        run: |
+          brew install glib x264
+        # On macOS, use Homebrew to install GLib (core dependency) and x264 (H.264 codec library for x264enc).
+        # Windows requires a different approach (e.g., using vcpkg or prebuilt GStreamer SDK for GLib etc.).
+
+      - name: Setup Python 3
+        uses: actions/setup-python@v3
+        with:
+          python-version: '3.x'
+        # Meson (build system) is a Python tool. Ensure Python3 is available (GH macOS runner has Python, but we use this for consistency).
+
+      - name: Install Meson and Ninja
+        run: |
+          python3 -m pip install --upgrade pip
+          pip install meson ninja
+        # Install Meson build system and Ninja backend via pip.
+        # (On Windows, this is similar, but Meson will detect MSVC as the compiler instead of clang.)
+
+      - name: Configure build with Meson (universal build)
+        run: |
+          # Configure Meson, enabling all plugin sets and GPL plugins, targeting universal binaries (ARM64 + x86_64)
+          ARCH_FLAGS="-arch arm64 -arch x86_64"
+          meson setup builddir \
+            --prefix "$PWD/install-dir" \
+            -Dbase=enabled -Dgood=enabled -Dbad=enabled -Dugly=enabled \  # Enable core plugin sets (default enabled in monorepo)&#8203;:contentReference[oaicite:1]{index=1}
+            -Dgpl=enabled \       # Allow (A)GPL-licensed plugins (e.g. x264, faad)&#8203;:contentReference[oaicite:2]{index=2}
+            -Dintrospection=disabled \  # Disable GObject introspection for faster build (optional)
+            -Dc_args="$ARCH_FLAGS" -Dcxx_args="$ARCH_FLAGS" -Dobjc_args="$ARCH_FLAGS"
+        # We set the install prefix to an 'install-dir' folder in the workspace.
+        # The plugin feature options ensure 'base', 'good', 'ugly', 'bad' plugins are included, and -Dgpl=enabled opts-in GPL codec plugins (x264, etc.)&#8203;:contentReference[oaicite:3]{index=3}.
+        # ARCH_FLAGS adds both ARM64 and x86_64 architectures to produce universal binaries&#8203;:contentReference[oaicite:4]{index=4}.
+        # (Meson will configure for clang on macOS. On Windows, it would use MSVC and you wouldn't combine architectures – no universal binaries on Windows.)
+
+      - name: Build GStreamer with Ninja
+        run: meson compile -C builddir
+        # Compile the code with Ninja (Meson's backend). This builds GStreamer core and all specified plugins.
+
+      - name: Install GStreamer to prefix
+        run: meson install -C builddir
+        # Install the built files into the specified prefix (install-dir). This will contain bin/, lib/, etc., for the built GStreamer.
+
+      - name: Verify installation and plugins
+        env:
+          PATH: "$PWD/install-dir/bin:${PATH}"
+        run: |
+          echo "GStreamer Version:"
+          gst-inspect-1.0 --version
+
+          echo "Core Plugins:"
+          gst-inspect-1.0 fakesrc || true
+
+          echo "H.264 Software Encoder (x264enc):"
+          gst-inspect-1.0 x264enc || true
+
+          echo "H.264 Hardware Encoder (VideoToolbox):"
+          gst-inspect-1.0 vtenc_h264 || true
+
+          echo "VideoToolbox Decoder (vtdec):"
+          gst-inspect-1.0 vtdec || true
+
+        # Add install-dir/bin to PATH to use the just-built gst-inspect-1.0.
+        # We check a few key plugins:
+        #  - x264enc: software H.264 encoder (requires x264, GPL plugin) – should be present if x264 library was found.
+        #  - vtenc_h264: hardware H.264 encoder using Apple's VideoToolbox – present on macOS via the applemedia plugin&#8203;:contentReference[oaicite:5]{index=5}.
+        #  - vtdec: VideoToolbox H.264 decoder (hardware accelerated on macOS)&#8203;:contentReference[oaicite:6]{index=6}.
+        # If these commands succeed (exit 0), the plugin is available. We use '|| true' to continue the job even if a plugin is missing (so the workflow doesn't fail outright).
+        # Note: On Windows, hardware H.264 acceleration would use MediaFoundation or Direct3D11 plugins instead (e.g., mfvideosink or d3d11va)&#8203;:contentReference[oaicite:7]{index=7}.
+
+      - name: Package build artifacts
+        run: zip -r gstreamer-macos-universal.zip install-dir
+        # Create a ZIP archive of the install directory. This will be uploaded and also attached to the release.
+
+      - name: Upload install directory artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: GStreamer-install-dir
+          path: install-dir
+        # Upload the raw install directory as an artifact (for examination or reuse). 
+
+      - name: Upload ZIP archive artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: GStreamer-macos-universal-zip
+          path: gstreamer-macos-universal.zip
+        # Upload the ZIP package as an artifact. 
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: gstreamer-macos-universal.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # If a tag push triggered this workflow, create a Release and upload the ZIP as a release asset.
+        # (softprops/action-gh-release uses the GITHUB_TOKEN to create a release.) The ZIP will appear in the GitHub Releases for this repository.
+        # This step runs only on tag events (ensured by the if condition). On Windows, the release step would be similar, but the artifacts would be architecture-specific (no universal binary).
