@@ -20,7 +20,7 @@ jobs:
 
       - name: Install Homebrew dependencies
         run: |
-          brew install glib x264 gsm libjpeg libpng x264
+          brew install glib x264 libjpeg libpng
 
       - name: Setup Python 3
         uses: actions/setup-python@v3
@@ -31,7 +31,7 @@ jobs:
         run: |
           python3 -m pip install --upgrade pip
           pip install meson ninja
-          
+
       - name: Configure build with Meson (universal build)
         run: |
             meson setup builddir \
