@@ -20,27 +20,19 @@ jobs:
 
       - name: Install Homebrew dependencies
         run: |
-          brew install glib x264
-        # On macOS, use Homebrew to install GLib (core dependency) and x264 (H.264 codec library for x264enc).
+          brew install glib x264 gsm libjpeg libpng x264
 
       - name: Setup Python 3
         uses: actions/setup-python@v3
         with:
           python-version: '3.x'
-        # Meson (build system) is a Python tool. Ensure Python3 is available (GH macOS runner has Python, but we use this for consistency).
 
       - name: Install Meson and Ninja
         run: |
           python3 -m pip install --upgrade pip
           pip install meson ninja
-        # Install Meson build system and Ninja backend via pip.
-
+          
       - name: Configure build with Meson (universal build)
-        env:
-            CFLAGS: "-arch arm64 -arch x86_64"
-            CXXFLAGS: "-arch arm64 -arch x86_64"
-            OBJCFLAGS: "-arch arm64 -arch x86_64"
-            LDFLAGS: "-arch arm64 -arch x86_64"
         run: |
             meson setup builddir \
             --prefix "$PWD/install-dir" \
