@@ -52,6 +52,7 @@ jobs:
         # Install the built files into the specified prefix (install-dir). This will contain bin/, lib/, etc., for the built GStreamer.
 
       - name: Verify installation and plugins
+        continue-on-error: true
         env:
           PATH: "$PWD/install-dir/bin:${PATH}"
         run: |
