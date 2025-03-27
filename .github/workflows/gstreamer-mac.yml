@@ -38,6 +38,7 @@ jobs:
         # (On Windows, this is similar, but Meson will detect MSVC as the compiler instead of clang.)
 
       - name: Configure build with Meson (universal build)
+        working-directory: gstreamer
         run: |
           # Configure Meson, enabling all plugin sets and GPL plugins, targeting universal binaries (ARM64 + x86_64)
           ARCH_FLAGS="-arch arm64 -arch x86_64"
