@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - duet-main
+concurrency:
+  group: ${{ github.workflow_ref }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build-and-test-windows-msvc:
