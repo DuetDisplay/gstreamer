@@ -89,14 +89,14 @@ jobs:
         # Create a ZIP archive of the install directory. This will be uploaded and also attached to the release.
 
       - name: Upload install directory artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: GStreamer-install-dir
           path: install-dir
         # Upload the raw install directory as an artifact (for examination or reuse). 
 
       - name: Upload ZIP archive artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: GStreamer-macos-universal-zip
           path: gstreamer-macos-universal.zip
