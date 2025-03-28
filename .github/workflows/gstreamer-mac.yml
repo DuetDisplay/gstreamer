@@ -41,7 +41,8 @@ jobs:
             -Dbad=enabled \
             -Dugly=enabled \
             -Dgpl=enabled \
-            -Dintrospection=disabled
+            -Dintrospection=disabled \
+            -Dpkgconfig.relocatable=true
 
       - name: Build GStreamer with Ninja
         run: meson compile -C builddir
