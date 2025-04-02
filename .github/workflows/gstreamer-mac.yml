@@ -49,9 +49,9 @@ jobs:
           PKG_CONFIG_PATH: /usr/local/lib/pkgconfig:$PKG_CONFIG_PATH
           PATH: /bin:/usr/bin:/usr/local/bin:/usr/local/opt/flex/bin:/usr/local/opt/glib/bin:$PATH
         run: |
-            meson setup builddir \
+            meson setup builddir-x86 \
             --cross-file mac_x86_64.txt \
-            --prefix "$PWD/install-dir" \
+            --prefix "$PWD/install-dir-x86" \
             -Dbase=enabled \
             -Dgood=enabled \
             -Dbad=enabled \
@@ -60,24 +60,40 @@ jobs:
             -Dintrospection=disabled \
             -Dpkgconfig.relocatable=true
 
-      - name: Build GStreamer with Ninja
+      - name: Configure build with Meson (ARM build)
+        run: |
+            meson setup builddir-arm \
+            --prefix "$PWD/install-dir-arm" \
+            -Dbase=enabled \
+            -Dgood=enabled \
+            -Dbad=enabled \
+            -Dugly=enabled \
+            -Dgpl=enabled \
+            -Dintrospection=disabled \
+            -Dpkgconfig.relocatable=true
+
+      - name: Build GStreamer with Ninja (x86 build)
         env:
           PKG_CONFIG_PATH: /usr/local/lib/pkgconfig:$PKG_CONFIG_PATH
           PATH: /bin:/usr/bin:/usr/local/bin:/usr/local/opt/flex/bin:/usr/local/opt/glib/bin:$PATH
-        run: meson compile -C builddir
-        # Compile the code with Ninja (Meson's backend). This builds GStreamer core and all specified plugins.
+        run: meson compile -C builddir-x86
 
-      - name: Install GStreamer to prefix
+      - name: Build GStreamer with Ninja (arm build)
+        run: meson compile -C builddir-arm
+
+      - name: Install GStreamer to prefix (x86 build)
         env:
           PKG_CONFIG_PATH: /usr/local/lib/pkgconfig:$PKG_CONFIG_PATH
           PATH: /bin:/usr/bin:/usr/local/bin:/usr/local/opt/flex/bin:/usr/local/opt/glib/bin:$PATH
-        run: meson install -C builddir
-        # Install the built files into the specified prefix (install-dir). This will contain bin/, lib/, etc., for the built GStreamer.
+        run: meson install -C builddir-x86
+      
+      - name: Install GStreamer to prefix (arm build)
+        run: meson install -C builddir-arm
 
-      - name: Verify installation and plugins
+      - name: Verify installation and plugins (x86 build)
         continue-on-error: true
         env:
-          PATH: "$PWD/install-dir/bin:${PATH}"
+          PATH: "$PWD/install-dir-x86/bin:${PATH}"
         run: |
           echo "GStreamer Version:"
           gst-inspect-1.0 --version
@@ -94,22 +110,60 @@ jobs:
           echo "VideoToolbox Decoder (vtdec):"
           gst-inspect-1.0 vtdec || true
 
-      - name: Package build artifacts
-        run: | 
-          cd install-dir
-          zip -r ../gstreamer-macos-universal.zip .
+      - name: Verify installation and plugins (arm build)
+        continue-on-error: true
+        env:
+          PATH: "$PWD/install-dir-arm/bin:${PATH}"
+        run: |
+          echo "GStreamer Version:"
+          gst-inspect-1.0 --version
 
-      - name: Upload install directory artifact
+          echo "Core Plugins:"
+          gst-inspect-1.0 fakesrc || true
+
+          echo "H.264 Software Encoder (x264enc):"
+          gst-inspect-1.0 x264enc || true
+
+          echo "H.264 Hardware Encoder (VideoToolbox):"
+          gst-inspect-1.0 vtenc_h264 || true
+
+          echo "VideoToolbox Decoder (vtdec):"
+          gst-inspect-1.0 vtdec || true
+
+      - name: Package build artifacts x86
+        run: | 
+          cd install-dir-x86
+          zip -r ../gstreamer-macos-x86.zip .
+
+      - name: Package build artifacts arm
+        run: | 
+          cd install-dir-arm
+          zip -r ../gstreamer-macos-arm.zip .
+
+      - name: Upload install directory artifact for x86
         uses: actions/upload-artifact@v4
         with:
           name: GStreamer-install-dir
-          path: install-dir
-        # Upload the raw install directory as an artifact (for examination or reuse). 
+          path: install-dir-x86
+
+      - name: Upload install directory artifact for arm
+        uses: actions/upload-artifact@v4
+        with:
+          name: GStreamer-install-dir
+          path: install-dir-arm
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          files: gstreamer-macos-universal.zip
+          files: gstreamer-macos-x86.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: gstreamer-macos-arm.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
