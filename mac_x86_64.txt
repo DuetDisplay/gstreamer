@@ -7,10 +7,10 @@ cpu = 'x86_64'
 endian = 'little'
 
 [binaries]
-c = ['clang', '-target', 'x86_64-apple-darwin']
-cpp = ['clang++', '-target', 'x86_64-apple-darwin']
-objc = ['clang', '-target', 'x86_64-apple-darwin']
-objcpp = ['clang++', '-target', 'x86_64-apple-darwin']
+c = ['/usr/bin/clang', '-target', 'x86_64-apple-darwin']
+cpp = ['/usr/bin/clang++', '-target', 'x86_64-apple-darwin']
+objc = ['/usr/bin/clang', '-target', 'x86_64-apple-darwin']
+objcpp = ['/usr/bin/clang++', '-target', 'x86_64-apple-darwin']
 ar = 'ar'
 strip = 'strip'
 pkgconfig = 'pkg-config'
