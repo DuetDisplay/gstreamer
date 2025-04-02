@@ -27,6 +27,10 @@ jobs:
         run: |
           # Ensure x86_64 architecture for Homebrew
           sudo softwareupdate --install-rosetta --agree-to-license || true
+          # Check if x86_64 Homebrew exists, install if not
+          if [ ! -d "/usr/local/Homebrew" ]; then
+            /usr/bin/arch -x86_64 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+          fi
           /usr/bin/arch -x86_64 /usr/local/bin/brew update
           /usr/bin/arch -x86_64 /usr/local/bin/brew install glib x264 libjpeg libpng
 
