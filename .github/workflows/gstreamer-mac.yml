@@ -49,7 +49,6 @@ jobs:
           PKG_CONFIG_PATH: /usr/local/lib/pkgconfig:$PKG_CONFIG_PATH
           PATH: /usr/local/bin:$PATH
         run: |
-          which flex
           flex --version
           pkg-config --modversion glib-2.0
 
