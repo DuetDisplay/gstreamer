@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - duet-main
+      - feature/UniversalTarget
 concurrency:
   group: ${{ github.workflow_ref }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
@@ -33,6 +34,10 @@ jobs:
           pip install meson ninja
 
       - name: Configure build with Meson (universal build)
+        env:
+          CFLAGS: "-arch x86_64 -mmacosx-version-min=11.0"
+          CXXFLAGS: "-arch x86_64 -mmacosx-version-min=11.0"
+          LDFLAGS: "-arch x86_64 -mmacosx-version-min=11.0"
         run: |
             meson setup builddir \
             --prefix "$PWD/install-dir" \
