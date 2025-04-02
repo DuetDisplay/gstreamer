@@ -23,6 +23,13 @@ jobs:
         run: |
           brew install glib x264 libjpeg libpng
 
+      - name: Install x86_64 Homebrew dependencies
+        run: |
+          # Ensure x86_64 architecture for Homebrew
+          sudo softwareupdate --install-rosetta --agree-to-license || true
+          /usr/bin/arch -x86_64 /usr/local/bin/brew update
+          /usr/bin/arch -x86_64 /usr/local/bin/brew install glib x264 libjpeg libpng
+
       - name: Setup Python 3
         uses: actions/setup-python@v3
         with:
@@ -33,7 +40,10 @@ jobs:
           python3 -m pip install --upgrade pip
           pip install meson ninja
 
-      - name: Configure build with Meson (universal build)
+      - name: Configure build with Meson (x86 build)
+        env:
+          PKG_CONFIG_PATH: /usr/local/lib/pkgconfig
+          PATH: /usr/local/bin:$PATH
         run: |
             meson setup builddir \
             --cross-file mac_x86_64.txt \
@@ -47,10 +57,16 @@ jobs:
             -Dpkgconfig.relocatable=true
 
       - name: Build GStreamer with Ninja
+        env:
+          PKG_CONFIG_PATH: /usr/local/lib/pkgconfig
+          PATH: /usr/local/bin:$PATH
         run: meson compile -C builddir
         # Compile the code with Ninja (Meson's backend). This builds GStreamer core and all specified plugins.
 
       - name: Install GStreamer to prefix
+        env:
+          PKG_CONFIG_PATH: /usr/local/lib/pkgconfig
+          PATH: /usr/local/bin:$PATH
         run: meson install -C builddir
         # Install the built files into the specified prefix (install-dir). This will contain bin/, lib/, etc., for the built GStreamer.
 
