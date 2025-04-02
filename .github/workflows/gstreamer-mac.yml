@@ -34,12 +34,9 @@ jobs:
           pip install meson ninja
 
       - name: Configure build with Meson (universal build)
-        env:
-          CFLAGS: "-arch x86_64 -mmacosx-version-min=11.0"
-          CXXFLAGS: "-arch x86_64 -mmacosx-version-min=11.0"
-          LDFLAGS: "-arch x86_64 -mmacosx-version-min=11.0"
         run: |
             meson setup builddir \
+            --cross-file mac_x86_64.txt \
             --prefix "$PWD/install-dir" \
             -Dbase=enabled \
             -Dgood=enabled \
