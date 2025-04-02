@@ -47,7 +47,7 @@ jobs:
       - name: Verify Environment
         env:
           PKG_CONFIG_PATH: /usr/local/lib/pkgconfig:$PKG_CONFIG_PATH
-          PATH: /usr/local/bin:$PATH
+          PATH: /usr/local/bin:/usr/local/opt/flex/bin:/usr/local/opt/glib/bin:$PATH
         run: |
           flex --version
           pkg-config --modversion glib-2.0
@@ -55,7 +55,7 @@ jobs:
       - name: Configure build with Meson (x86 build)
         env:
           PKG_CONFIG_PATH: /usr/local/lib/pkgconfig:$PKG_CONFIG_PATH
-          PATH: /usr/local/bin:$PATH
+          PATH: /usr/local/bin:/usr/local/opt/flex/bin:/usr/local/opt/glib/bin:$PATH
         run: |
             meson setup builddir \
             --cross-file mac_x86_64.txt \
@@ -71,14 +71,14 @@ jobs:
       - name: Build GStreamer with Ninja
         env:
           PKG_CONFIG_PATH: /usr/local/lib/pkgconfig:$PKG_CONFIG_PATH
-          PATH: /usr/local/bin:$PATH
+          PATH: /usr/local/bin:/usr/local/opt/flex/bin:/usr/local/opt/glib/bin:$PATH
         run: meson compile -C builddir
         # Compile the code with Ninja (Meson's backend). This builds GStreamer core and all specified plugins.
 
       - name: Install GStreamer to prefix
         env:
-          PKG_CONFIG_PATH: /usr/local/lib/pkgconfig
-          PATH: /usr/local/bin:$PATH
+          PKG_CONFIG_PATH: /usr/local/lib/pkgconfig:$PKG_CONFIG_PATH
+          PATH: /usr/local/bin:/usr/local/opt/flex/bin:/usr/local/opt/glib/bin:$PATH
         run: meson install -C builddir
         # Install the built files into the specified prefix (install-dir). This will contain bin/, lib/, etc., for the built GStreamer.
 
