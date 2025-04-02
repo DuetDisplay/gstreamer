@@ -47,7 +47,7 @@ jobs:
       - name: Configure build with Meson (x86 build)
         env:
           PKG_CONFIG_PATH: /usr/local/lib/pkgconfig:$PKG_CONFIG_PATH
-          PATH: /usr/local/bin:$PATH
+          PATH: /usr/local/bin:/usr/local/bin/flex:/usr/local/bin/glib:/usr/local/bin/x264:/usr/local/bin/libjpeg:/usr/local/bin/libpng:$PATH
         run: |
             meson setup builddir \
             --cross-file mac_x86_64.txt \
@@ -63,7 +63,7 @@ jobs:
       - name: Build GStreamer with Ninja
         env:
           PKG_CONFIG_PATH: /usr/local/lib/pkgconfig:$PKG_CONFIG_PATH
-          PATH: /usr/local/bin:$PATH
+          PATH: /usr/local/bin:/usr/local/bin/flex:/usr/local/bin/glib:/usr/local/bin/x264:/usr/local/bin/libjpeg:/usr/local/bin/libpng:$PATH
         run: meson compile -C builddir
         # Compile the code with Ninja (Meson's backend). This builds GStreamer core and all specified plugins.
 
