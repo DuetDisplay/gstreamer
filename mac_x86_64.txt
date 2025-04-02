@@ -11,9 +11,10 @@ c = ['/usr/bin/clang', '-target', 'x86_64-apple-darwin']
 cpp = ['/usr/bin/clang++', '-target', 'x86_64-apple-darwin']
 objc = ['/usr/bin/clang', '-target', 'x86_64-apple-darwin']
 objcpp = ['/usr/bin/clang++', '-target', 'x86_64-apple-darwin']
-ar = 'ar'
-strip = 'strip'
+ar = '/usr/bin/ar'
+strip = '/usr/bin/strip'
 pkgconfig = 'pkg-config'
+ld = ['/usr/bin/clang', '-target', 'x86_64-apple-darwin']
 
 [properties]
 needs_exe_wrapper = true
