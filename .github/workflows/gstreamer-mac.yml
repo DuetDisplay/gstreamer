@@ -143,13 +143,13 @@ jobs:
       - name: Upload install directory artifact for x86
         uses: actions/upload-artifact@v4
         with:
-          name: GStreamer-install-dir
+          name: GStreamer-install-dir-x86
           path: install-dir-x86
 
       - name: Upload install directory artifact for arm
         uses: actions/upload-artifact@v4
         with:
-          name: GStreamer-install-dir
+          name: GStreamer-install-dir-arm
           path: install-dir-arm
 
       - name: Publish GitHub Release
