@@ -47,7 +47,7 @@ jobs:
       - name: Configure build with Meson (x86 build)
         env:
           PKG_CONFIG_PATH: /usr/local/lib/pkgconfig:$PKG_CONFIG_PATH
-          PATH: /bin:/usr/bin:/usr/local/bin:/usr/local/opt/flex/bin:/usr/local/opt/glib/bin:$PATH
+          PATH: /bin:/usr/bin:/usr/local/bin:/usr/local/opt/flex/bin:/usr/local/opt/glib/bin:/usr/local/opt/gettext/bin:$PATH
         run: |
             meson setup builddir-x86 \
             --cross-file mac_x86_64.txt \
@@ -63,7 +63,7 @@ jobs:
       - name: Configure build with Meson (ARM build)
         env:
           PKG_CONFIG_PATH: /opt/homebrew/lib/pkgconfig:$PKG_CONFIG_PATH
-          PATH: /bin:/usr/bin:/opt/homebrew/bin:/opt/homebrew/opt/flex/bin:/opt/homebrew/opt/glib/bin:$PATH
+          PATH: /bin:/usr/bin:/opt/homebrew/bin:/opt/homebrew/opt/flex/bin:/opt/homebrew/opt/glib/bin:/opt/homebrew/opt/gettext/bin:$PATH
         run: |
             meson setup builddir-arm \
             --prefix "$PWD/install-dir-arm" \
@@ -78,25 +78,25 @@ jobs:
       - name: Build GStreamer with Ninja (x86 build)
         env:
           PKG_CONFIG_PATH: /usr/local/lib/pkgconfig:$PKG_CONFIG_PATH
-          PATH: /bin:/usr/bin:/usr/local/bin:/usr/local/opt/flex/bin:/usr/local/opt/glib/bin:$PATH
+          PATH: /bin:/usr/bin:/usr/local/bin:/usr/local/opt/flex/bin:/usr/local/opt/glib/bin:/usr/local/opt/gettext/bin:$PATH
         run: meson compile -C builddir-x86
 
       - name: Build GStreamer with Ninja (arm build)
         env:
           PKG_CONFIG_PATH: /opt/homebrew/lib/pkgconfig:$PKG_CONFIG_PATH
-          PATH: /bin:/usr/bin:/opt/homebrew/bin:/opt/homebrew/opt/flex/bin:/opt/homebrew/opt/glib/bin:$PATH
+          PATH: /bin:/usr/bin:/opt/homebrew/bin:/opt/homebrew/opt/flex/bin:/opt/homebrew/opt/glib/bin:/opt/homebrew/opt/gettext/bin:$PATH
         run: meson compile -C builddir-arm
 
       - name: Install GStreamer to prefix (x86 build)
         env:
           PKG_CONFIG_PATH: /usr/local/lib/pkgconfig:$PKG_CONFIG_PATH
-          PATH: /bin:/usr/bin:/usr/local/bin:/usr/local/opt/flex/bin:/usr/local/opt/glib/bin:$PATH
+          PATH: /bin:/usr/bin:/usr/local/bin:/usr/local/opt/flex/bin:/usr/local/opt/glib/bin:/usr/local/opt/gettext/bin:$PATH
         run: meson install -C builddir-x86
       
       - name: Install GStreamer to prefix (arm build)
         env:
           PKG_CONFIG_PATH: /opt/homebrew/lib/pkgconfig:$PKG_CONFIG_PATH
-          PATH: /bin:/usr/bin:/opt/homebrew/bin:/opt/homebrew/opt/flex/bin:/opt/homebrew/opt/glib/bin:$PATH
+          PATH: /bin:/usr/bin:/opt/homebrew/bin:/opt/homebrew/opt/flex/bin:/opt/homebrew/opt/glib/bin:/opt/homebrew/opt/gettext/bin:$PATH
         run: meson install -C builddir-arm
 
       - name: Verify installation and plugins (x86 build)
