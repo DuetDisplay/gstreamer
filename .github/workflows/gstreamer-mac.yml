@@ -21,7 +21,7 @@ jobs:
 
       - name: Install Homebrew dependencies
         run: |
-          brew install git x264 libjpeg libpng flex
+          brew install git x264 libjpeg libpng flex glib gettext
 
       - name: Install x86_64 Homebrew dependencies
         run: |
@@ -32,7 +32,7 @@ jobs:
             /usr/bin/arch -x86_64 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
           fi
           /usr/bin/arch -x86_64 /usr/local/bin/brew update
-          /usr/bin/arch -x86_64 /usr/local/bin/brew install git x264 libjpeg libpng flex
+          /usr/bin/arch -x86_64 /usr/local/bin/brew install git x264 libjpeg libpng flex glib gettext
 
       - name: Setup Python 3
         uses: actions/setup-python@v3
@@ -205,6 +205,41 @@ jobs:
           echo "Universal binary creation complete."
         shell: bash
 
+      - name: Create Universal GLib and Intl Libraries
+        run: |
+          # Define architecture-specific directories
+          ARM_LIB_DIR="/opt/homebrew/Cellar"
+          X86_LIB_DIR="/usr/local/Cellar"
+          UNIVERSAL_LIB_DIR="install-dir-universal/lib"
+      
+          # Ensure the universal lib directory exists
+          mkdir -p "$UNIVERSAL_LIB_DIR"
+      
+          # List of libraries to merge
+          LIBS=("libglib-2.0.dylib" "libgobject-2.0.dylib" "libintl.8.dylib")
+      
+          for lib in "${LIBS[@]}"; do
+            ARM_FILE="$ARM_LIB_DIR/glib/2.84.0_1/lib/$lib"
+            X86_FILE="$X86_LIB_DIR/glib/2.84.0_1/lib/$lib"
+      
+            # For libintl, the path is under gettext instead of glib
+            if [[ "$lib" == "libintl.8.dylib" ]]; then
+              ARM_FILE="$ARM_LIB_DIR/gettext/0.24/lib/$lib"
+              X86_FILE="$X86_LIB_DIR/gettext/0.24/lib/$lib"
+            fi
+      
+            # Check if both architecture libraries exist
+            if [[ -f "$ARM_FILE" && -f "$X86_FILE" ]]; then
+              echo "Creating universal binary for $lib"
+              lipo -create -output "$UNIVERSAL_LIB_DIR/$lib" "$ARM_FILE" "$X86_FILE"
+              echo "Successfully created: $UNIVERSAL_LIB_DIR/$lib"
+            else
+              echo "Error: One or both architecture files for $lib not found"
+              exit 1
+            fi
+          done
+        shell: bash
+      
       - name: Package build artifacts universal
         run: | 
           cd install-dir-universal
