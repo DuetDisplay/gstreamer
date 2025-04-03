@@ -152,6 +152,49 @@ jobs:
           name: GStreamer-install-dir-arm
           path: install-dir-arm
 
+      - name: Create Universal Binary
+        run: |
+          # Define architecture-specific directories
+          ARM_DIR="install-dir-arm"
+          X86_DIR="install-dir-x86"
+          UNIVERSAL_DIR="install-dir-universal"
+      
+          # Create the universal directory structure
+          cp -R "$ARM_DIR/" "$UNIVERSAL_DIR/"
+      
+          # Merge non-binary files
+          rsync -avh --ignore-existing "$X86_DIR/" "$UNIVERSAL_DIR/"
+      
+          # Find and merge binary files
+          find "$ARM_DIR" -type f | while read -r ARM_FILE; do
+              # Determine the relative path
+              REL_PATH="${ARM_FILE#$ARM_DIR/}"
+              X86_FILE="$X86_DIR/$REL_PATH"
+              UNIVERSAL_FILE="$UNIVERSAL_DIR/$REL_PATH"
+      
+              # Check if the corresponding x86 file exists
+              if [ -f "$X86_FILE" ]; then
+                  # Verify both files are binaries
+                  if file "$ARM_FILE" | grep -q "Mach-O"; then
+                      # Create universal binary
+                      lipo -create "$ARM_FILE" "$X86_FILE" -output "$UNIVERSAL_FILE"
+                      echo "Created universal binary: $UNIVERSAL_FILE"
+                  fi
+              fi
+          done
+        shell: bash
+
+      - name: Package build artifacts universal
+        run: | 
+          cd install-dir-universal
+          zip -r ../gstreamer-macos-universal.zip .
+
+      - name: Upload install directory artifact for universal
+        uses: actions/upload-artifact@v4
+        with:
+          name: GStreamer-install-dir-universal
+          path: install-dir-Universal
+
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -165,5 +208,13 @@ jobs:
         with:
           tag_name: ${{ github.ref_name }}
           files: gstreamer-macos-arm.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: gstreamer-macos-universal.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
