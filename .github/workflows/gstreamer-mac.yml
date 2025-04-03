@@ -21,7 +21,7 @@ jobs:
 
       - name: Install Homebrew dependencies
         run: |
-          brew install git glib x264 libjpeg libpng flex
+          brew install git glib x264 libjpeg libpng flex gettext
 
       - name: Install x86_64 Homebrew dependencies
         run: |
@@ -32,7 +32,7 @@ jobs:
             /usr/bin/arch -x86_64 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
           fi
           /usr/bin/arch -x86_64 /usr/local/bin/brew update
-          /usr/bin/arch -x86_64 /usr/local/bin/brew install git glib x264 libjpeg libpng flex
+          /usr/bin/arch -x86_64 /usr/local/bin/brew install git glib x264 libjpeg libpng flex gettext
 
       - name: Setup Python 3
         uses: actions/setup-python@v3
