@@ -21,7 +21,7 @@ jobs:
 
       - name: Install Homebrew dependencies
         run: |
-          brew install glib x264 libjpeg libpng
+          brew install git glib x264 libjpeg libpng flex
 
       - name: Install x86_64 Homebrew dependencies
         run: |
@@ -61,6 +61,9 @@ jobs:
             -Dpkgconfig.relocatable=true
 
       - name: Configure build with Meson (ARM build)
+        env:
+          PKG_CONFIG_PATH: /opt/homebrew/lib/pkgconfig:$PKG_CONFIG_PATH
+          PATH: /bin:/usr/bin:/opt/homebrew/bin:/opt/homebrew/opt/flex/bin:/opt/homebrew/opt/glib/bin:$PATH
         run: |
             meson setup builddir-arm \
             --prefix "$PWD/install-dir-arm" \
@@ -79,6 +82,9 @@ jobs:
         run: meson compile -C builddir-x86
 
       - name: Build GStreamer with Ninja (arm build)
+        env:
+          PKG_CONFIG_PATH: /opt/homebrew/lib/pkgconfig:$PKG_CONFIG_PATH
+          PATH: /bin:/usr/bin:/opt/homebrew/bin:/opt/homebrew/opt/flex/bin:/opt/homebrew/opt/glib/bin:$PATH
         run: meson compile -C builddir-arm
 
       - name: Install GStreamer to prefix (x86 build)
@@ -88,6 +94,9 @@ jobs:
         run: meson install -C builddir-x86
       
       - name: Install GStreamer to prefix (arm build)
+        env:
+          PKG_CONFIG_PATH: /opt/homebrew/lib/pkgconfig:$PKG_CONFIG_PATH
+          PATH: /bin:/usr/bin:/opt/homebrew/bin:/opt/homebrew/opt/flex/bin:/opt/homebrew/opt/glib/bin:$PATH
         run: meson install -C builddir-arm
 
       - name: Verify installation and plugins (x86 build)
@@ -158,30 +167,42 @@ jobs:
           ARM_DIR="install-dir-arm"
           X86_DIR="install-dir-x86"
           UNIVERSAL_DIR="install-dir-universal"
-      
+
           # Create the universal directory structure
-          cp -R "$ARM_DIR/" "$UNIVERSAL_DIR/"
-      
+          echo "Creating universal directory structure..."
+          rsync -avh "$ARM_DIR/" "$UNIVERSAL_DIR/"
+
           # Merge non-binary files
+          echo "Merging non-binary files..."
           rsync -avh --ignore-existing "$X86_DIR/" "$UNIVERSAL_DIR/"
-      
-          # Find and merge binary files
+
+          # Find and attempt to merge all files
+          echo "Finding and merging all files..."
           find "$ARM_DIR" -type f | while read -r ARM_FILE; do
               # Determine the relative path
               REL_PATH="${ARM_FILE#$ARM_DIR/}"
               X86_FILE="$X86_DIR/$REL_PATH"
               UNIVERSAL_FILE="$UNIVERSAL_DIR/$REL_PATH"
-      
+
               # Check if the corresponding x86 file exists
               if [ -f "$X86_FILE" ]; then
-                  # Verify both files are binaries
-                  if file "$ARM_FILE" | grep -q "Mach-O"; then
-                      # Create universal binary
-                      lipo -create "$ARM_FILE" "$X86_FILE" -output "$UNIVERSAL_FILE"
+                  echo "Attempting to merge: $ARM_FILE and $X86_FILE"
+
+                  # Create a temporary output file to avoid overwriting issues
+                  TEMP_UNIVERSAL_FILE="${UNIVERSAL_FILE}.tmp"
+
+                  # Attempt to create the universal binary
+                  if lipo -create "$ARM_FILE" "$X86_FILE" -output "$TEMP_UNIVERSAL_FILE"; then
+                      mv "$TEMP_UNIVERSAL_FILE" "$UNIVERSAL_FILE"
                       echo "Created universal binary: $UNIVERSAL_FILE"
+                  else
+                      echo "Skipping non-binary or incompatible file: $REL_PATH"
+                      rm -f "$TEMP_UNIVERSAL_FILE"
                   fi
               fi
           done
+
+          echo "Universal binary creation complete."
         shell: bash
 
       - name: Package build artifacts universal
