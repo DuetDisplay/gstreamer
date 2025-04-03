@@ -21,7 +21,7 @@ jobs:
 
       - name: Install Homebrew dependencies
         run: |
-          brew install git glib x264 libjpeg libpng flex gettext
+          brew install git x264 libjpeg libpng flex
 
       - name: Install x86_64 Homebrew dependencies
         run: |
@@ -32,7 +32,7 @@ jobs:
             /usr/bin/arch -x86_64 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
           fi
           /usr/bin/arch -x86_64 /usr/local/bin/brew update
-          /usr/bin/arch -x86_64 /usr/local/bin/brew install git glib x264 libjpeg libpng flex gettext
+          /usr/bin/arch -x86_64 /usr/local/bin/brew install git x264 libjpeg libpng flex
 
       - name: Setup Python 3
         uses: actions/setup-python@v3
@@ -47,7 +47,7 @@ jobs:
       - name: Configure build with Meson (x86 build)
         env:
           PKG_CONFIG_PATH: /usr/local/lib/pkgconfig:$PKG_CONFIG_PATH
-          PATH: /bin:/usr/bin:/usr/local/bin:/usr/local/opt/flex/bin:/usr/local/opt/glib/bin:/usr/local/opt/gettext/bin:$PATH
+          PATH: /bin:/usr/bin:/usr/local/bin:/usr/local/opt/flex/bin:$PATH
         run: |
             meson setup builddir-x86 \
             --cross-file mac_x86_64.txt \
@@ -63,7 +63,7 @@ jobs:
       - name: Configure build with Meson (ARM build)
         env:
           PKG_CONFIG_PATH: /opt/homebrew/lib/pkgconfig:$PKG_CONFIG_PATH
-          PATH: /bin:/usr/bin:/opt/homebrew/bin:/opt/homebrew/opt/flex/bin:/opt/homebrew/opt/glib/bin:/opt/homebrew/opt/gettext/bin:$PATH
+          PATH: /bin:/usr/bin:/opt/homebrew/bin:/opt/homebrew/opt/flex/bin:$PATH
         run: |
             meson setup builddir-arm \
             --prefix "$PWD/install-dir-arm" \
@@ -78,25 +78,25 @@ jobs:
       - name: Build GStreamer with Ninja (x86 build)
         env:
           PKG_CONFIG_PATH: /usr/local/lib/pkgconfig:$PKG_CONFIG_PATH
-          PATH: /bin:/usr/bin:/usr/local/bin:/usr/local/opt/flex/bin:/usr/local/opt/glib/bin:/usr/local/opt/gettext/bin:$PATH
+          PATH: /bin:/usr/bin:/usr/local/bin:/usr/local/opt/flex/bin:$PATH
         run: meson compile -C builddir-x86
 
       - name: Build GStreamer with Ninja (arm build)
         env:
           PKG_CONFIG_PATH: /opt/homebrew/lib/pkgconfig:$PKG_CONFIG_PATH
-          PATH: /bin:/usr/bin:/opt/homebrew/bin:/opt/homebrew/opt/flex/bin:/opt/homebrew/opt/glib/bin:/opt/homebrew/opt/gettext/bin:$PATH
+          PATH: /bin:/usr/bin:/opt/homebrew/bin:/opt/homebrew/opt/flex/bin:$PATH
         run: meson compile -C builddir-arm
 
       - name: Install GStreamer to prefix (x86 build)
         env:
           PKG_CONFIG_PATH: /usr/local/lib/pkgconfig:$PKG_CONFIG_PATH
-          PATH: /bin:/usr/bin:/usr/local/bin:/usr/local/opt/flex/bin:/usr/local/opt/glib/bin:/usr/local/opt/gettext/bin:$PATH
+          PATH: /bin:/usr/bin:/usr/local/bin:/usr/local/opt/flex/bin:$PATH
         run: meson install -C builddir-x86
       
       - name: Install GStreamer to prefix (arm build)
         env:
           PKG_CONFIG_PATH: /opt/homebrew/lib/pkgconfig:$PKG_CONFIG_PATH
-          PATH: /bin:/usr/bin:/opt/homebrew/bin:/opt/homebrew/opt/flex/bin:/opt/homebrew/opt/glib/bin:/opt/homebrew/opt/gettext/bin:$PATH
+          PATH: /bin:/usr/bin:/opt/homebrew/bin:/opt/homebrew/opt/flex/bin:$PATH
         run: meson install -C builddir-arm
 
       - name: Verify installation and plugins (x86 build)
