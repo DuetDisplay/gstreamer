@@ -216,7 +216,7 @@ jobs:
           mkdir -p "$UNIVERSAL_LIB_DIR"
       
           # List of libraries to merge
-          LIBS=("libglib-2.0.dylib" "libgobject-2.0.dylib" "libintl.dylib")
+          LIBS=("libglib-2.0.dylib" "libgobject-2.0.dylib" "libintl.8.dylib")
       
           for lib in "${LIBS[@]}"; do
             ARM_FILE="$ARM_LIB_DIR/glib/2.84.0_1/lib/$lib"
@@ -236,6 +236,11 @@ jobs:
             else
               echo "Error: One or both architecture files for $lib not found"
               exit 1
+            fi
+
+            # For libintl, fix the path in the universal binary
+            if [[ "$lib" == "libintl.8.dylib" ]]; then
+              mv "$UNIVERSAL_LIB_DIR/$lib" "$UNIVERSAL_LIB_DIR/libintl.dylib"
             fi
           done
         shell: bash
