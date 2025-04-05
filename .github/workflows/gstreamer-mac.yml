@@ -216,7 +216,7 @@ jobs:
           mkdir -p "$UNIVERSAL_LIB_DIR"
       
           # List of libraries to merge
-          LIBS=("libglib-2.0.dylib" "libgobject-2.0.dylib" "libintl.8.dylib")
+          LIBS=("libglib-2.0.dylib" "libgobject-2.0.dylib" "libintl.dylib")
       
           for lib in "${LIBS[@]}"; do
             ARM_FILE="$ARM_LIB_DIR/glib/2.84.0_1/lib/$lib"
