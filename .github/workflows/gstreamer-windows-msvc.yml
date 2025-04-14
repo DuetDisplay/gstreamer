@@ -154,6 +154,9 @@ jobs:
           $json = $metadata | ConvertTo-Json -Depth 5
           $json | Set-Content -Encoding UTF8 metadata.json
 
+      - name: Install Azure Trusted Signing extension
+        run: az extension add --name trustedsigning
+
       - name: Sign all files
         if: github.ref == 'refs/heads/duet-main'
         run: az trustedsigning sign --file metadata.json
