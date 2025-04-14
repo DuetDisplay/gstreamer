@@ -1404,6 +1404,20 @@
                         "type": "guint64",
                         "writable": true
                     },
+                    "max-retries": {
+                        "blurb": "Maximum number of retries for HTTP requests (-1=infinite)",
+                        "conditionally-available": false,
+                        "construct": false,
+                        "construct-only": false,
+                        "controllable": false,
+                        "default": "3",
+                        "max": "2147483647",
+                        "min": "-1",
+                        "mutable": "null",
+                        "readable": true,
+                        "type": "gint",
+                        "writable": true
+                    },
                     "min-bitrate": {
                         "blurb": "Minimum bitrate to use when switching to alternates (bits/s)",
                         "conditionally-available": false,
@@ -1416,6 +1430,34 @@
                         "mutable": "null",
                         "readable": true,
                         "type": "guint",
+                        "writable": true
+                    },
+                    "retry-backoff-factor": {
+                        "blurb": "Exponential retry backoff factor in seconds",
+                        "conditionally-available": false,
+                        "construct": false,
+                        "construct-only": false,
+                        "controllable": false,
+                        "default": "0",
+                        "max": "1.79769e+308",
+                        "min": "0",
+                        "mutable": "null",
+                        "readable": true,
+                        "type": "gdouble",
+                        "writable": true
+                    },
+                    "retry-backoff-max": {
+                        "blurb": "Maximum backoff delay in seconds",
+                        "conditionally-available": false,
+                        "construct": false,
+                        "construct-only": false,
+                        "controllable": false,
+                        "default": "60",
+                        "max": "1.79769e+308",
+                        "min": "0",
+                        "mutable": "null",
+                        "readable": true,
+                        "type": "gdouble",
                         "writable": true
                     }
                 }
@@ -8082,12 +8124,12 @@
                 "long-name": "Still frame stream generator",
                 "pad-templates": {
                     "sink": {
-                        "caps": "video/x-raw(ANY):\n\nvideo/x-bayer(ANY):\n\nimage/jpeg(ANY):\n\nimage/png(ANY):\n",
+                        "caps": "video/x-raw(ANY):\n\nvideo/x-bayer(ANY):\n\nimage/jpeg(ANY):\n\nimage/x-jxsc(ANY):\n      alignment: frame\n\nimage/png(ANY):\n",
                         "direction": "sink",
                         "presence": "always"
                     },
                     "src": {
-                        "caps": "video/x-raw(ANY):\n\nvideo/x-bayer(ANY):\n\nimage/jpeg(ANY):\n\nimage/png(ANY):\n",
+                        "caps": "video/x-raw(ANY):\n\nvideo/x-bayer(ANY):\n\nimage/jpeg(ANY):\n\nimage/x-jxsc(ANY):\n      alignment: frame\n\nimage/png(ANY):\n",
                         "direction": "src",
                         "presence": "always"
                     }
@@ -15552,7 +15594,32 @@
                         "presence": "always"
                     }
                 },
-                "properties": {},
+                "properties": {
+                    "request-keyframe": {
+                        "blurb": "Request new keyframe when packet loss is detected",
+                        "conditionally-available": false,
+                        "construct": false,
+                        "construct-only": false,
+                        "controllable": false,
+                        "default": "false",
+                        "mutable": "null",
+                        "readable": true,
+                        "type": "gboolean",
+                        "writable": true
+                    },
+                    "wait-for-keyframe": {
+                        "blurb": "Wait for the next keyframe after packet loss, meaningful only when outputting access units",
+                        "conditionally-available": false,
+                        "construct": false,
+                        "construct-only": false,
+                        "controllable": false,
+                        "default": "false",
+                        "mutable": "null",
+                        "readable": true,
+                        "type": "gboolean",
+                        "writable": true
+                    }
+                },
                 "rank": "secondary"
             },
             "rtph265pay": {
@@ -24475,6 +24542,34 @@
                         "mutable": "null",
                         "readable": true,
                         "type": "gint",
+                        "writable": true
+                    },
+                    "retry-backoff-factor": {
+                        "blurb": "Exponential retry backoff factor in seconds",
+                        "conditionally-available": false,
+                        "construct": false,
+                        "construct-only": false,
+                        "controllable": false,
+                        "default": "0",
+                        "max": "1.79769e+308",
+                        "min": "0",
+                        "mutable": "null",
+                        "readable": true,
+                        "type": "gdouble",
+                        "writable": true
+                    },
+                    "retry-backoff-max": {
+                        "blurb": "Maximum backoff delay in seconds",
+                        "conditionally-available": false,
+                        "construct": false,
+                        "construct-only": false,
+                        "controllable": false,
+                        "default": "60",
+                        "max": "1.79769e+308",
+                        "min": "0",
+                        "mutable": "null",
+                        "readable": true,
+                        "type": "gdouble",
                         "writable": true
                     },
                     "ssl-ca-file": {

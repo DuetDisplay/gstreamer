@@ -234,6 +234,7 @@ class Test(Loggable):
             copied_test._uuid = None
             copied_test.options = copy.copy(self.options)
             copied_test.options.logsdir = os.path.join(copied_test.options.logsdir, str(nth))
+            copied_test.extra_logfiles = set()
             os.makedirs(copied_test.options.logsdir, exist_ok=True)
 
         return copied_test
@@ -2352,6 +2353,7 @@ class _TestsLauncher(Loggable):
             self._stop_server()
 
     def run_tests(self):
+        os.environ["GST_VALIDATE_LAUNCHER_HTTP_SERVER_PATH"] = os.path.join(os.path.dirname(__file__), "RangeHTTPServer.py")
         r = 0
         try:
             self._start_server()
@@ -2400,14 +2402,6 @@ class _TestsLauncher(Loggable):
         for tester in self.testers:
             if tester.needs_http_server():
                 return True
-
-
-class NamedDic(object):
-
-    def __init__(self, props):
-        if props:
-            for name, value in props.items():
-                setattr(self, name, value)
 
 
 class Scenario(object):

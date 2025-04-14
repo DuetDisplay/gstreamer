@@ -1,5 +1,5 @@
 project('gst-plugins-base', 'c',
-  version : '1.25.50.1',
+  version : '1.27.0.1',
   meson_version : '>= 1.4',
   default_options : [ 'warning_level=1',
                       'buildtype=debugoptimized' ])
@@ -398,6 +398,15 @@ else
   core_conf.set('DISABLE_ORC', 1)
 endif
 
+base_platform_dep = []
+# Check for libatomic for use of C11 atomics: some architectures need
+# to link explicitly to this library.
+# TODO: Once meson 1.7 is in use, this can be updated to
+# dependency('atomic')
+atomic_dep = cc.find_library('atomic', required: false)
+
+base_platform_dep += [atomic_dep]
+
 # Used to build SSE* things in audio-resampler
 sse_args = '-msse'
 sse2_args = '-msse2'
@@ -574,7 +583,7 @@ endif
 # Use core_conf after all subdirs have set values
 configure_file(output : 'config.h', configuration : core_conf)
 
-meson.add_dist_script('scripts/gen-changelog.py', meson.project_name(), '1.22.0', meson.project_version())
+meson.add_dist_script('scripts/gen-changelog.py', meson.project_name(), '1.24.0', meson.project_version())
 
 plugin_names = []
 gst_plugins = []

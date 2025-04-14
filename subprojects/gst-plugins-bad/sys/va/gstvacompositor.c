@@ -55,7 +55,6 @@
 
 #include "gstvabase.h"
 #include "gstvacaps.h"
-#include "gstvadisplay_priv.h"
 #include "gstvafilter.h"
 #include "gstvapluginutils.h"
 
@@ -651,6 +650,7 @@ gst_va_compositor_propose_allocation (GstAggregator * agg,
   gst_object_unref (pool);
 
   gst_query_add_allocation_meta (query, GST_VIDEO_META_API_TYPE, NULL);
+  gst_query_add_allocation_meta (query, GST_VIDEO_CROP_META_API_TYPE, NULL);
 
   return TRUE;
 

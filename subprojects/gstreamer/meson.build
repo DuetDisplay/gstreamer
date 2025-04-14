@@ -1,5 +1,5 @@
 project('gstreamer', 'c',
-  version : '1.25.50.1',
+  version : '1.27.0.1',
   meson_version : '>= 1.4',
   default_options : [ 'warning_level=1',
                       'buildtype=debugoptimized' ])
@@ -599,6 +599,13 @@ if nsl_lib.found()
   network_deps += nsl_lib
 endif
 
+# Check for libatomic for use of C11 atomics: some architectures need
+# to link explicitly to this library.
+# TODO: Once meson 1.7 is in use, this can be updated to
+# dependency('atomic')
+atomic_dep = cc.find_library('atomic', required: false)
+platform_deps += atomic_dep
+
 gir = find_program('g-ir-scanner', required : get_option('introspection'))
 gnome = import('gnome')
 
@@ -719,7 +726,7 @@ endif
 configure_file(output : 'config.h', configuration : cdata)
 install_data('gst-element-check-1.0.m4', install_dir : join_paths(get_option('datadir'), 'aclocal'))
 
-meson.add_dist_script('scripts/gen-changelog.py', meson.project_name(), '1.22.0', meson.project_version())
+meson.add_dist_script('scripts/gen-changelog.py', meson.project_name(), '1.24.0', meson.project_version())
 
 plugin_names = []
 gst_plugins = []

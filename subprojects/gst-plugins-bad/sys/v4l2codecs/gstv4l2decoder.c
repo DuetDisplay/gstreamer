@@ -680,6 +680,7 @@ gst_v4l2_decoder_select_src_format (GstV4l2Decoder * self, GstCaps * caps,
   }
 
   GST_DEBUG_OBJECT (self, "Original caps: %" GST_PTR_FORMAT, caps);
+  caps = gst_v4l2_format_sort_caps (caps);
   caps = gst_caps_fixate (caps);
   GST_DEBUG_OBJECT (self, "Fixated caps: %" GST_PTR_FORMAT, caps);
 
@@ -687,8 +688,10 @@ gst_v4l2_decoder_select_src_format (GstV4l2Decoder * self, GstCaps * caps,
   if (!gst_video_info_dma_drm_from_caps (&tmp_vinfo_drm, caps) &&
       !gst_video_info_from_caps (&tmp_vinfo_drm.vinfo, caps)) {
     GST_WARNING_OBJECT (self, "Can't transform caps into video info!");
+    gst_caps_unref (caps);
     return FALSE;
   }
+  gst_caps_unref (caps);
 
   format = tmp_vinfo_drm.vinfo.finfo->format;
   if (!gst_v4l2_format_from_drm_format (tmp_vinfo_drm.drm_fourcc,
