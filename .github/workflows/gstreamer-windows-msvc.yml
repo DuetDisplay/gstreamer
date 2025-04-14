@@ -114,6 +114,46 @@ jobs:
           } else {
             Write-Error "install-dir not found!"
           }
+      - name: Azure login
+        if: github.ref == 'refs/heads/duet-main'
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          enable-AzPSSession: true
+  
+      - name: Install Azure Trusted Signing Extension
+        if: github.ref == 'refs/heads/duet-main'
+        run: az extension add --name trustedsigning
+
+      - name: Generate metadata.json for signing
+        if: github.ref == 'refs/heads/duet-main'
+        shell: pwsh
+        run: |
+          $signingDir = "gstreamer/install-dir/"
+          $files = Get-ChildItem -Path $signingDir -Recurse -Include *.exe, *.dll
+          
+          $metadata = @{
+            CodeSigningAccountName = "DuetCodeSigning"
+            CertificateProfileName = "DuetCertificateProfile"
+            Endpoint = "https://eus.codesigning.azure.net"
+            Files = @()
+          }
+
+          foreach ($file in $files) {
+            $metadata.Files += @{
+              SourceLocation = $file.FullName
+              OutputFile = $file.FullName
+            }
+          }
+
+          $json = $metadata | ConvertTo-Json -Depth 5
+          $json | Set-Content -Encoding UTF8 metadata.json
+
+      - name: Sign all files
+        if: github.ref == 'refs/heads/duet-main'
+        run: az trustedsigning sign --file metadata.json
 
         # Upload installed files as artifact
       - name: Upload Build Artifacts
