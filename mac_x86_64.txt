@@ -1,0 +1,20 @@
+# mac_x86_64.txt – Meson cross file for targeting x86_64 on ARM macOS
+
+[host_machine]
+system = 'darwin'
+cpu_family = 'x86_64'
+cpu = 'x86_64'
+endian = 'little'
+
+[binaries]
+c = ['/usr/bin/clang', '-target', 'x86_64-apple-darwin']
+cpp = ['/usr/bin/clang++', '-target', 'x86_64-apple-darwin']
+objc = ['/usr/bin/clang', '-target', 'x86_64-apple-darwin']
+objcpp = ['/usr/bin/clang++', '-target', 'x86_64-apple-darwin']
+ar = '/usr/bin/ar'
+strip = '/usr/bin/strip'
+pkgconfig = 'pkg-config'
+ld = ['/usr/bin/clang', '-target', 'x86_64-apple-darwin']
+
+[properties]
+needs_exe_wrapper = true
