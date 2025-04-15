@@ -216,7 +216,7 @@ jobs:
           mkdir -p "$UNIVERSAL_LIB_DIR"
       
           # List of libraries to merge
-          LIBS=("libglib-2.0.0.dylib" "libglib-2.0.dylib" "libgobject-2.0.dylib" "libintl.8.dylib" "libgobject-2.0.0.dylib" "libgmodule-2.0.0.dylib")
+          LIBS=("libpcre2-8.0.dylib" "libglib-2.0.0.dylib" "libglib-2.0.dylib" "libgobject-2.0.dylib" "libintl.8.dylib" "libgobject-2.0.0.dylib" "libgmodule-2.0.0.dylib")
       
           for lib in "${LIBS[@]}"; do
             ARM_FILE="$ARM_LIB_DIR/glib/2.84.0_1/lib/$lib"
@@ -226,6 +226,12 @@ jobs:
             if [[ "$lib" == "libintl.8.dylib" ]]; then
               ARM_FILE="$ARM_LIB_DIR/gettext/0.24/lib/$lib"
               X86_FILE="$X86_LIB_DIR/gettext/0.24/lib/$lib"
+            fi
+
+            # For libpcre2, the path is under gettext instead of glib
+            if [[ "$lib" == "libpcre2-8.0.dylib" ]]; then
+              ARM_FILE="$ARM_LIB_DIR/pcre2/lib/$lib"
+              X86_FILE="$X86_LIB_DIR/pcre2/lib/lib/$lib"
             fi
       
             # Check if both architecture libraries exist
