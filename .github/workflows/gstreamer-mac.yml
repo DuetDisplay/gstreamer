@@ -231,7 +231,7 @@ jobs:
             # For libpcre2, the path is under gettext instead of glib
             if [[ "$lib" == "libpcre2-8.0.dylib" ]]; then
               ARM_FILE="$ARM_LIB_DIR/pcre2/lib/$lib"
-              X86_FILE="$X86_LIB_DIR/pcre2/lib/lib/$lib"
+              X86_FILE="$X86_LIB_DIR/pcre2/lib/$lib"
             fi
       
             # Check if both architecture libraries exist
