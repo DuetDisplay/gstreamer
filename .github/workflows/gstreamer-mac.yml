@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - duet-main
+      - feature/UniversalTarget
 concurrency:
   group: ${{ github.workflow_ref }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
@@ -20,7 +21,18 @@ jobs:
 
       - name: Install Homebrew dependencies
         run: |
-          brew install glib x264 libjpeg libpng
+          brew install git x264 libjpeg libpng flex glib gettext
+
+      - name: Install x86_64 Homebrew dependencies
+        run: |
+          # Ensure x86_64 architecture for Homebrew
+          sudo softwareupdate --install-rosetta --agree-to-license || true
+          # Check if x86_64 Homebrew exists, install if not
+          if [ ! -d "/usr/local/Homebrew" ]; then
+            /usr/bin/arch -x86_64 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+          fi
+          /usr/bin/arch -x86_64 /usr/local/bin/brew update
+          /usr/bin/arch -x86_64 /usr/local/bin/brew install git x264 libjpeg libpng flex glib gettext
 
       - name: Setup Python 3
         uses: actions/setup-python@v3
@@ -32,10 +44,14 @@ jobs:
           python3 -m pip install --upgrade pip
           pip install meson ninja
 
-      - name: Configure build with Meson (universal build)
+      - name: Configure build with Meson (x86 build)
+        env:
+          PKG_CONFIG_PATH: /usr/local/lib/pkgconfig:$PKG_CONFIG_PATH
+          PATH: /bin:/usr/bin:/usr/local/bin:/usr/local/opt/flex/bin:$PATH
         run: |
-            meson setup builddir \
-            --prefix "$PWD/install-dir" \
+            meson setup builddir-x86 \
+            --cross-file mac_x86_64.txt \
+            --prefix "$PWD/install-dir-x86" \
             -Dbase=enabled \
             -Dgood=enabled \
             -Dbad=enabled \
@@ -44,18 +60,49 @@ jobs:
             -Dintrospection=disabled \
             -Dpkgconfig.relocatable=true
 
-      - name: Build GStreamer with Ninja
-        run: meson compile -C builddir
-        # Compile the code with Ninja (Meson's backend). This builds GStreamer core and all specified plugins.
+      - name: Configure build with Meson (ARM build)
+        env:
+          PKG_CONFIG_PATH: /opt/homebrew/lib/pkgconfig:$PKG_CONFIG_PATH
+          PATH: /bin:/usr/bin:/opt/homebrew/bin:/opt/homebrew/opt/flex/bin:$PATH
+        run: |
+            meson setup builddir-arm \
+            --prefix "$PWD/install-dir-arm" \
+            -Dbase=enabled \
+            -Dgood=enabled \
+            -Dbad=enabled \
+            -Dugly=enabled \
+            -Dgpl=enabled \
+            -Dintrospection=disabled \
+            -Dpkgconfig.relocatable=true
 
-      - name: Install GStreamer to prefix
-        run: meson install -C builddir
-        # Install the built files into the specified prefix (install-dir). This will contain bin/, lib/, etc., for the built GStreamer.
+      - name: Build GStreamer with Ninja (x86 build)
+        env:
+          PKG_CONFIG_PATH: /usr/local/lib/pkgconfig:$PKG_CONFIG_PATH
+          PATH: /bin:/usr/bin:/usr/local/bin:/usr/local/opt/flex/bin:$PATH
+        run: meson compile -C builddir-x86
 
-      - name: Verify installation and plugins
+      - name: Build GStreamer with Ninja (arm build)
+        env:
+          PKG_CONFIG_PATH: /opt/homebrew/lib/pkgconfig:$PKG_CONFIG_PATH
+          PATH: /bin:/usr/bin:/opt/homebrew/bin:/opt/homebrew/opt/flex/bin:$PATH
+        run: meson compile -C builddir-arm
+
+      - name: Install GStreamer to prefix (x86 build)
+        env:
+          PKG_CONFIG_PATH: /usr/local/lib/pkgconfig:$PKG_CONFIG_PATH
+          PATH: /bin:/usr/bin:/usr/local/bin:/usr/local/opt/flex/bin:$PATH
+        run: meson install -C builddir-x86
+      
+      - name: Install GStreamer to prefix (arm build)
+        env:
+          PKG_CONFIG_PATH: /opt/homebrew/lib/pkgconfig:$PKG_CONFIG_PATH
+          PATH: /bin:/usr/bin:/opt/homebrew/bin:/opt/homebrew/opt/flex/bin:$PATH
+        run: meson install -C builddir-arm
+
+      - name: Verify installation and plugins (x86 build)
         continue-on-error: true
         env:
-          PATH: "$PWD/install-dir/bin:${PATH}"
+          PATH: "$PWD/install-dir-x86/bin:${PATH}"
         run: |
           echo "GStreamer Version:"
           gst-inspect-1.0 --version
@@ -72,17 +119,158 @@ jobs:
           echo "VideoToolbox Decoder (vtdec):"
           gst-inspect-1.0 vtdec || true
 
-      - name: Package build artifacts
-        run: | 
-          cd install-dir
-          zip -r ../gstreamer-macos-universal.zip .
+      - name: Verify installation and plugins (arm build)
+        continue-on-error: true
+        env:
+          PATH: "$PWD/install-dir-arm/bin:${PATH}"
+        run: |
+          echo "GStreamer Version:"
+          gst-inspect-1.0 --version
 
-      - name: Upload install directory artifact
+          echo "Core Plugins:"
+          gst-inspect-1.0 fakesrc || true
+
+          echo "H.264 Software Encoder (x264enc):"
+          gst-inspect-1.0 x264enc || true
+
+          echo "H.264 Hardware Encoder (VideoToolbox):"
+          gst-inspect-1.0 vtenc_h264 || true
+
+          echo "VideoToolbox Decoder (vtdec):"
+          gst-inspect-1.0 vtdec || true
+
+      - name: Package build artifacts x86
+        run: | 
+          cd install-dir-x86
+          zip -r ../gstreamer-macos-x86.zip .
+
+      - name: Package build artifacts arm
+        run: | 
+          cd install-dir-arm
+          zip -r ../gstreamer-macos-arm.zip .
+
+      - name: Upload install directory artifact for x86
         uses: actions/upload-artifact@v4
         with:
-          name: GStreamer-install-dir
-          path: install-dir
-        # Upload the raw install directory as an artifact (for examination or reuse). 
+          name: GStreamer-install-dir-x86
+          path: install-dir-x86
+
+      - name: Upload install directory artifact for arm
+        uses: actions/upload-artifact@v4
+        with:
+          name: GStreamer-install-dir-arm
+          path: install-dir-arm
+
+      - name: Create Universal Binary
+        run: |
+          # Define architecture-specific directories
+          ARM_DIR="install-dir-arm"
+          X86_DIR="install-dir-x86"
+          UNIVERSAL_DIR="install-dir-universal"
+
+          # Create the universal directory structure
+          echo "Creating universal directory structure..."
+          rsync -avh "$ARM_DIR/" "$UNIVERSAL_DIR/"
+
+          # Merge non-binary files
+          echo "Merging non-binary files..."
+          rsync -avh --ignore-existing "$X86_DIR/" "$UNIVERSAL_DIR/"
+
+          # Find and attempt to merge all files
+          echo "Finding and merging all files..."
+          find "$ARM_DIR" -type f | while read -r ARM_FILE; do
+              # Determine the relative path
+              REL_PATH="${ARM_FILE#$ARM_DIR/}"
+              X86_FILE="$X86_DIR/$REL_PATH"
+              UNIVERSAL_FILE="$UNIVERSAL_DIR/$REL_PATH"
+
+              # Check if the corresponding x86 file exists
+              if [ -f "$X86_FILE" ]; then
+                  echo "Attempting to merge: $ARM_FILE and $X86_FILE"
+
+                  # Create a temporary output file to avoid overwriting issues
+                  TEMP_UNIVERSAL_FILE="${UNIVERSAL_FILE}.tmp"
+
+                  # Attempt to create the universal binary
+                  if lipo -create "$ARM_FILE" "$X86_FILE" -output "$TEMP_UNIVERSAL_FILE"; then
+                      mv "$TEMP_UNIVERSAL_FILE" "$UNIVERSAL_FILE"
+                      echo "Created universal binary: $UNIVERSAL_FILE"
+                  else
+                      echo "Skipping non-binary or incompatible file: $REL_PATH"
+                      rm -f "$TEMP_UNIVERSAL_FILE"
+                  fi
+              fi
+          done
+
+          echo "Universal binary creation complete."
+        shell: bash
+
+      - name: Create Universal GLib and Intl Libraries
+        run: |
+          # Define architecture-specific directories
+          ARM_LIB_DIR="/opt/homebrew/Cellar"
+          X86_LIB_DIR="/usr/local/Cellar"
+          UNIVERSAL_LIB_DIR="install-dir-universal/lib"
+      
+          # Ensure the universal lib directory exists
+          mkdir -p "$UNIVERSAL_LIB_DIR"
+      
+          # List of libraries to merge
+          LIBS=("libglib-2.0.0.dylib" "libglib-2.0.dylib" "libgobject-2.0.dylib" "libintl.8.dylib" "libgobject-2.0.0.dylib" "libgmodule-2.0.0.dylib")
+      
+          for lib in "${LIBS[@]}"; do
+            ARM_FILE="$ARM_LIB_DIR/glib/2.84.0_1/lib/$lib"
+            X86_FILE="$X86_LIB_DIR/glib/2.84.0_1/lib/$lib"
+      
+            # For libintl, the path is under gettext instead of glib
+            if [[ "$lib" == "libintl.8.dylib" ]]; then
+              ARM_FILE="$ARM_LIB_DIR/gettext/0.24/lib/$lib"
+              X86_FILE="$X86_LIB_DIR/gettext/0.24/lib/$lib"
+            fi
+      
+            # Check if both architecture libraries exist
+            if [[ -f "$ARM_FILE" && -f "$X86_FILE" ]]; then
+              echo "Creating universal binary for $lib"
+              lipo -create -output "$UNIVERSAL_LIB_DIR/$lib" "$ARM_FILE" "$X86_FILE"
+              echo "Successfully created: $UNIVERSAL_LIB_DIR/$lib"
+            else
+              echo "Error: One or both architecture files for $lib not found"
+              exit 1
+            fi
+
+            # For libintl, fix the path in the universal binary
+            if [[ "$lib" == "libintl.8.dylib" ]]; then
+              cp "$UNIVERSAL_LIB_DIR/$lib" "$UNIVERSAL_LIB_DIR/libintl.dylib"
+            fi
+          done
+        shell: bash
+      
+      - name: Package build artifacts universal
+        run: | 
+          cd install-dir-universal
+          zip -r ../gstreamer-macos-universal.zip .
+
+      - name: Upload install directory artifact for universal
+        uses: actions/upload-artifact@v4
+        with:
+          name: GStreamer-install-dir-universal
+          path: install-dir-Universal
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: gstreamer-macos-x86.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: gstreamer-macos-arm.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
