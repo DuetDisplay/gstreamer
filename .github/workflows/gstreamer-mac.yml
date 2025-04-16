@@ -207,44 +207,57 @@ jobs:
 
       - name: Create Universal GLib and Intl Libraries
         run: |
-          # Define architecture-specific directories
-          ARM_LIB_DIR="/opt/homebrew/Cellar"
-          X86_LIB_DIR="/usr/local/Cellar"
+          set -euo pipefail
+      
+          # Define Cellar roots
+          ARM_CELLAR="/opt/homebrew/Cellar"
+          X86_CELLAR="/usr/local/Cellar"
           UNIVERSAL_LIB_DIR="install-dir-universal/lib"
       
-          # Ensure the universal lib directory exists
           mkdir -p "$UNIVERSAL_LIB_DIR"
       
           # List of libraries to merge
           LIBS=("libgthread-2.0.dylib" "libgthread-2.0.0.dylib" "libpcre2-8.0.dylib" "libglib-2.0.0.dylib" "libglib-2.0.dylib" "libgobject-2.0.dylib" "libintl.8.dylib" "libgobject-2.0.0.dylib" "libgmodule-2.0.0.dylib")
       
+          find_latest_lib_path() {
+            local base_dir="$1"
+            local formula="$2"
+            local libname="$3"
+      
+            local latest_dir
+            latest_dir=$(ls -1d "$base_dir/$formula"/* | sort -V | tail -n1)
+            echo "$latest_dir/lib/$libname"
+          }
+      
           for lib in "${LIBS[@]}"; do
-            ARM_FILE="$ARM_LIB_DIR/glib/2.84.1/lib/$lib"
-            X86_FILE="$X86_LIB_DIR/glib/2.84.1/lib/$lib"
+            case "$lib" in
+              libintl.8.dylib)
+                ARM_FILE=$(find_latest_lib_path "$ARM_CELLAR" "gettext" "$lib")
+                X86_FILE=$(find_latest_lib_path "$X86_CELLAR" "gettext" "$lib")
+                ;;
+              libpcre2-8.0.dylib)
+                ARM_FILE=$(find_latest_lib_path "$ARM_CELLAR" "pcre2" "$lib")
+                X86_FILE=$(find_latest_lib_path "$X86_CELLAR" "pcre2" "$lib")
+                ;;
+              *)
+                ARM_FILE=$(find_latest_lib_path "$ARM_CELLAR" "glib" "$lib")
+                X86_FILE=$(find_latest_lib_path "$X86_CELLAR" "glib" "$lib")
+                ;;
+            esac
       
-            # For libintl, the path is under gettext instead of glib
-            if [[ "$lib" == "libintl.8.dylib" ]]; then
-              ARM_FILE="$ARM_LIB_DIR/gettext/0.24/lib/$lib"
-              X86_FILE="$X86_LIB_DIR/gettext/0.24/lib/$lib"
-            fi
-
-            # For libpcre2, the path is under gettext instead of glib
-            if [[ "$lib" == "libpcre2-8.0.dylib" ]]; then
-              ARM_FILE="$ARM_LIB_DIR/pcre2/10.45/lib/$lib"
-              X86_FILE="$X86_LIB_DIR/pcre2/10.45/lib/$lib"
-            fi
-      
-            # Check if both architecture libraries exist
-            if [[ -f "$ARM_FILE" && -f "$X86_FILE" ]]; then
-              echo "Creating universal binary for $lib"
-              lipo -create -output "$UNIVERSAL_LIB_DIR/$lib" "$ARM_FILE" "$X86_FILE"
-              echo "Successfully created: $UNIVERSAL_LIB_DIR/$lib"
-            else
-              echo "Error: One or both architecture files for $lib not found"
+            if [[ ! -f "$ARM_FILE" ]]; then
+              echo "❌ ARM file not found: $ARM_FILE"
               exit 1
             fi
-
-            # For libintl, fix the path in the universal binary
+      
+            if [[ ! -f "$X86_FILE" ]]; then
+              echo "❌ x86 file not found: $X86_FILE"
+              exit 1
+            fi
+      
+            echo "✅ Merging $lib"
+            lipo -create -output "$UNIVERSAL_LIB_DIR/$lib" "$ARM_FILE" "$X86_FILE"
+      
             if [[ "$lib" == "libintl.8.dylib" ]]; then
               cp "$UNIVERSAL_LIB_DIR/$lib" "$UNIVERSAL_LIB_DIR/libintl.dylib"
             fi
