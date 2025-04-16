@@ -219,43 +219,27 @@ jobs:
           # List of libraries to merge
           LIBS=("libgthread-2.0.dylib" "libgthread-2.0.0.dylib" "libpcre2-8.0.dylib" "libglib-2.0.0.dylib" "libglib-2.0.dylib" "libgobject-2.0.dylib" "libintl.8.dylib" "libgobject-2.0.0.dylib" "libgmodule-2.0.0.dylib")
       
-          find_latest_lib_path() {
-            local base_dir="$1"
-            local formula="$2"
-            local libname="$3"
-      
-            local latest_dir
-            latest_dir=$(ls -1d "$base_dir/$formula"/* | sort -V | tail -n1)
-            echo "$latest_dir/lib/$libname"
+          find_lib_path() {
+            local base="$1"
+            local libname="$2"
+            find "$base" -type f -name "$libname" | sort | tail -n1
           }
       
           for lib in "${LIBS[@]}"; do
-            case "$lib" in
-              libintl.8.dylib)
-                ARM_FILE=$(find_latest_lib_path "$ARM_CELLAR" "gettext" "$lib")
-                X86_FILE=$(find_latest_lib_path "$X86_CELLAR" "gettext" "$lib")
-                ;;
-              libpcre2-8.0.dylib)
-                ARM_FILE=$(find_latest_lib_path "$ARM_CELLAR" "pcre2" "$lib")
-                X86_FILE=$(find_latest_lib_path "$X86_CELLAR" "pcre2" "$lib")
-                ;;
-              *)
-                ARM_FILE=$(find_latest_lib_path "$ARM_CELLAR" "glib" "$lib")
-                X86_FILE=$(find_latest_lib_path "$X86_CELLAR" "glib" "$lib")
-                ;;
-            esac
+            ARM_FILE=$(find_lib_path "$ARM_CELLAR" "$lib" || true)
+            X86_FILE=$(find_lib_path "$X86_CELLAR" "$lib" || true)
       
-            if [[ ! -f "$ARM_FILE" ]]; then
-              echo "❌ ARM file not found: $ARM_FILE"
+            if [[ -z "$ARM_FILE" || ! -f "$ARM_FILE" ]]; then
+              echo "❌ ARM file not found for $lib"
               exit 1
             fi
       
-            if [[ ! -f "$X86_FILE" ]]; then
-              echo "❌ x86 file not found: $X86_FILE"
+            if [[ -z "$X86_FILE" || ! -f "$X86_FILE" ]]; then
+              echo "❌ x86 file not found for $lib"
               exit 1
             fi
       
-            echo "✅ Merging $lib"
+            echo "✅ Creating universal binary for $lib"
             lipo -create -output "$UNIVERSAL_LIB_DIR/$lib" "$ARM_FILE" "$X86_FILE"
       
             if [[ "$lib" == "libintl.8.dylib" ]]; then
