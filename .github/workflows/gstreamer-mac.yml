@@ -250,6 +250,26 @@ jobs:
             fi
           done
         shell: bash
+
+      - name: Check for non-universal .dylib files
+        run: |
+          echo "Scanning for non-universal .dylib files in ./install-dir-universal directory..."
+          non_universal_files=$(find ./install-dir-universal -type f -name "*.dylib" -exec sh -c '
+            for file do
+              archs=$(lipo -archs "$file" 2>/dev/null)
+              if [ "$archs" != "x86_64 arm64" ]; then
+                echo "$file"
+              fi
+            done
+          ' sh {} +)
+      
+          if [ -n "$non_universal_files" ]; then
+            echo "❌ The following .dylib files are not universal binaries:"
+            echo "$non_universal_files"
+            exit 1
+          else
+            echo "✅ All .dylib files are universal binaries."
+          fi
       
       - name: Package build artifacts universal
         run: | 
