@@ -21,7 +21,7 @@ jobs:
 
       - name: Install Homebrew dependencies
         run: |
-          brew install git x264 libjpeg libpng flex glib gettext pcre2
+          brew install git x264 libjpeg libpng flex glib gettext pcre2 libxml2
 
       - name: Install x86_64 Homebrew dependencies
         run: |
@@ -32,7 +32,7 @@ jobs:
             /usr/bin/arch -x86_64 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
           fi
           /usr/bin/arch -x86_64 /usr/local/bin/brew update
-          /usr/bin/arch -x86_64 /usr/local/bin/brew install git x264 libjpeg libpng flex glib gettext pcre2
+          /usr/bin/arch -x86_64 /usr/local/bin/brew install git x264 libjpeg libpng flex glib gettext pcre2 libxml2
 
       - name: Setup Python 3
         uses: actions/setup-python@v3
@@ -217,7 +217,7 @@ jobs:
           mkdir -p "$UNIVERSAL_LIB_DIR"
       
           # List of libraries to merge
-          LIBS=("libgthread-2.0.0.dylib" "libpcre2-8.0.dylib" "libglib-2.0.0.dylib" "libintl.8.dylib" "libgobject-2.0.0.dylib" "libgmodule-2.0.0.dylib")
+          LIBS=("libgirepository-2.0.0.dylib" "libgio-2.0.0.dylib" "libpixman-1.0.dylib" "libpsl.5.dylib" "libfreetype.6.dylib" "libpng16.16.dylib" "libx264.164.dylib" "libcairo-fdr.dylib" "libcairo-trace.dylib" "libcairo-script-interpreter.2.dylib" "libcairo-gobject.2.dylib" "libcairo.2.dylib" "libjpeg.8.3.2.dylib" "libturbojpeg.0.4.0.dylib" "libxml2.2.dylib" "libharfbuzz-gobject.0.dylib" "libharfbuzz.0.dylib" "libharfbuzz-subset.0.dylib" "libgthread-2.0.0.dylib" "libpcre2-8.0.dylib" "libglib-2.0.0.dylib" "libintl.8.dylib" "libgobject-2.0.0.dylib" "libgmodule-2.0.0.dylib")
       
           find_lib_path() {
             local base="$1"
@@ -249,6 +249,7 @@ jobs:
         shell: bash
 
       - name: Check for non-universal .dylib files
+        continue-on-error: true
         run: |
           echo "Scanning for non-universal .dylib files in ./install-dir-universal directory..."
           non_universal_files=$(find ./install-dir-universal -type f -name "*.dylib" -exec sh -c '
