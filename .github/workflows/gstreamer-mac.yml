@@ -32,7 +32,7 @@ jobs:
             /usr/bin/arch -x86_64 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
           fi
           /usr/bin/arch -x86_64 /usr/local/bin/brew update
-          /usr/bin/arch -x86_64 /usr/local/bin/brew install git x264 libjpeg libpng flex glib gettext pcre2 libxml2 pixman libpsl harfbuzz jpeg-turbo cairo freetype libffi libnice gobject-introspection
+          /usr/bin/arch -x86_64 /usr/local/bin/brew install git x264 libjpeg libpng flex glib gettext pcre2 libxml2 pixman libpsl harfbuzz jpeg-turbo cairo freetype libffi libnice gobject-introspection || true # true here ignores errors linking since we actually only need them downloaded and we don't want to overwrite the ARM64 ones
       
       - name: Create Universal GLib and Intl Libraries
         run: |
