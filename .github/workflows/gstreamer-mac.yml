@@ -217,7 +217,7 @@ jobs:
           mkdir -p "$UNIVERSAL_LIB_DIR"
       
           # List of libraries to merge
-          LIBS=("libgthread-2.0.0.dylib" "libpcre2-8.0.dylib" "libglib-2.0.0.dylib" "libglib-2.0.dylib" "libintl.8.dylib" "libgobject-2.0.0.dylib" "libgmodule-2.0.0.dylib")
+          LIBS=("libgthread-2.0.0.dylib" "libpcre2-8.0.dylib" "libglib-2.0.0.dylib" "libintl.8.dylib" "libgobject-2.0.0.dylib" "libgmodule-2.0.0.dylib")
       
           find_lib_path() {
             local base="$1"
