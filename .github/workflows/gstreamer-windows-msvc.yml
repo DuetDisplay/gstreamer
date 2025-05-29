@@ -173,6 +173,69 @@ jobs:
           ninja -C builddir install
           if ($LASTEXITCODE -ne 0) { throw "Install failed with exit code $LASTEXITCODE" }
 
+      # Copy curl runtime dependencies from vcpkg
+      - name: Copy Curl Runtime Dependencies
+        shell: powershell
+        run: |
+          Set-Location gstreamer
+          $vcpkgBinDir = "${{ github.workspace }}\vcpkg\installed\x64-windows\bin"
+          $gstreamerBinDir = "install-dir\bin"
+          
+          Write-Host "Copying curl runtime dependencies..."
+          Write-Host "Source: $vcpkgBinDir"
+          Write-Host "Destination: $gstreamerBinDir"
+          
+          # List available DLLs in vcpkg bin directory
+          if (Test-Path $vcpkgBinDir) {
+            Write-Host "Available DLLs in vcpkg:"
+            Get-ChildItem $vcpkgBinDir -Filter "*.dll" | ForEach-Object { Write-Host "  $($_.Name)" }
+            
+            # Copy curl and SSL dependencies
+            $dllsToCopy = @(
+              "libcurl.dll",
+              "libcurl-d.dll", 
+              "zlib1.dll",
+              "libssl-3-x64.dll",
+              "libcrypto-3-x64.dll"
+            )
+            
+            foreach ($dll in $dllsToCopy) {
+              $sourcePath = Join-Path $vcpkgBinDir $dll
+              if (Test-Path $sourcePath) {
+                $destPath = Join-Path $gstreamerBinDir $dll
+                Copy-Item $sourcePath $destPath -Force
+                Write-Host "Copied: $dll"
+              } else {
+                Write-Host "Not found: $dll (this may be OK if using different SSL implementation)"
+              }
+            }
+            
+            # Also copy any other curl-related or SSL-related DLLs that might exist
+            Get-ChildItem $vcpkgBinDir -Filter "*curl*.dll" | ForEach-Object {
+              $destPath = Join-Path $gstreamerBinDir $_.Name
+              Copy-Item $_.FullName $destPath -Force
+              Write-Host "Copied additional curl DLL: $($_.Name)"
+            }
+            
+            Get-ChildItem $vcpkgBinDir -Filter "*ssl*.dll" | ForEach-Object {
+              $destPath = Join-Path $gstreamerBinDir $_.Name
+              Copy-Item $_.FullName $destPath -Force
+              Write-Host "Copied additional SSL DLL: $($_.Name)"
+            }
+            
+            Get-ChildItem $vcpkgBinDir -Filter "*crypto*.dll" | ForEach-Object {
+              $destPath = Join-Path $gstreamerBinDir $_.Name
+              Copy-Item $_.FullName $destPath -Force
+              Write-Host "Copied additional crypto DLL: $($_.Name)"
+            }
+            
+            Write-Host "Runtime dependencies copy completed."
+            Write-Host "Final bin directory contents:"
+            Get-ChildItem $gstreamerBinDir -Filter "*.dll" | Where-Object { $_.Name -like "*curl*" -or $_.Name -like "*ssl*" -or $_.Name -like "*crypto*" } | ForEach-Object { Write-Host "  $($_.Name)" }
+          } else {
+            Write-Error "vcpkg bin directory not found: $vcpkgBinDir"
+          }
+
       # Verify installed tools
       - name: Verify Install
         shell: powershell
@@ -185,16 +248,72 @@ jobs:
           & $gstInspect x264enc
           & $gstInspect mp4mux
           & $gstInspect filesink
+          
           # Verify curlhttpsink is available
-          Write-Host "Checking for curlhttpsink plugin..."
+          Write-Host "=== Checking for curl-related plugins ==="
           & $gstInspect curlhttpsink
-          if ($LASTEXITCODE -ne 0) {
-            Write-Host "curlhttpsink not found, listing available curl plugins..."
-            & $gstInspect | Select-String -Pattern "curl"
-            Write-Host "Listing bad plugins directory..."
-            if (Test-Path "install-dir/lib/gstreamer-1.0") {
-              Get-ChildItem "install-dir/lib/gstreamer-1.0" | Where-Object { $_.Name -like "*curl*" -or $_.Name -like "*bad*" }
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "✓ curlhttpsink plugin loaded successfully!"
+            
+            # Test other curl elements if available
+            Write-Host "Testing other curl elements..."
+            & $gstInspect curlhttpsrc 2>$null
+            & $gstInspect curlftpsink 2>$null
+            & $gstInspect curlsftpsink 2>$null
+          } else {
+            Write-Host "✗ curlhttpsink not found or failed to load"
+            Write-Host "Troubleshooting curl plugin..."
+            
+            # Check if gstcurl.dll exists
+            $curlPlugin = "install-dir/lib/gstreamer-1.0/gstcurl.dll"
+            if (Test-Path $curlPlugin) {
+              Write-Host "✓ gstcurl.dll exists at: $curlPlugin"
+              
+              # Check dependencies using dumpbin if available
+              try {
+                & dumpbin /dependents $curlPlugin 2>$null | Select-String -Pattern "\.dll"
+                Write-Host "Dependencies check completed (if dumpbin available)"
+              } catch {
+                Write-Host "dumpbin not available for dependency check"
+              }
+            } else {
+              Write-Host "✗ gstcurl.dll not found at expected location"
             }
+            
+            # List all available curl-related files
+            Write-Host "Searching for curl-related files in installation:"
+            Get-ChildItem "install-dir" -Recurse -Filter "*curl*" | ForEach-Object { 
+              Write-Host "  Found: $($_.FullName)" 
+            }
+            
+            # List all plugins in gstreamer-1.0 directory
+            Write-Host "All plugins in lib/gstreamer-1.0/:"
+            if (Test-Path "install-dir/lib/gstreamer-1.0") {
+              Get-ChildItem "install-dir/lib/gstreamer-1.0" -Filter "*.dll" | ForEach-Object { 
+                Write-Host "  $($_.Name)" 
+              }
+            }
+          }
+          
+          # Check bin directory for curl DLLs
+          Write-Host "=== Checking bin directory for curl dependencies ==="
+          $binDir = "install-dir/bin"
+          $curlRelatedFiles = Get-ChildItem $binDir -Filter "*curl*" -ErrorAction SilentlyContinue
+          $sslRelatedFiles = Get-ChildItem $binDir -Filter "*ssl*" -ErrorAction SilentlyContinue
+          $cryptoRelatedFiles = Get-ChildItem $binDir -Filter "*crypto*" -ErrorAction SilentlyContinue
+          
+          if ($curlRelatedFiles) {
+            Write-Host "✓ Curl-related files in bin:"
+            $curlRelatedFiles | ForEach-Object { Write-Host "  $($_.Name)" }
+          } else {
+            Write-Host "✗ No curl-related files found in bin directory"
+          }
+          
+          if ($sslRelatedFiles -or $cryptoRelatedFiles) {
+            Write-Host "✓ SSL/Crypto files in bin:"
+            ($sslRelatedFiles + $cryptoRelatedFiles) | ForEach-Object { Write-Host "  $($_.Name)" }
+          } else {
+            Write-Host "✗ No SSL/crypto files found in bin directory"
           }
 
         # Debug: List install-dir contents
