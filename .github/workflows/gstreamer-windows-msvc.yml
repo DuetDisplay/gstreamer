@@ -98,7 +98,7 @@ jobs:
               }
             }
             
-            $pkgConfigContent = "prefix=$vcpkgRoot`nexec_prefix=`${prefix}`nlibdir=`${prefix}/lib`nincludedir=`${prefix}/include`n`nName: libcurl`nDescription: Library for transferring data with URLs`nVersion: $curlVersion`nLibs: -L`${libdir} -lcurl`nLibs.private: -lws2_32 -lwldap32 -lwinmm -lcrypt32`nCflags: -I`${includedir}"
+            $pkgConfigContent = "prefix=$vcpkgRoot`nexec_prefix=`$prefix`nlibdir=`$prefix/lib`nincludedir=`$prefix/include`n`nName: libcurl`nDescription: Library for transferring data with URLs`nVersion: $curlVersion`nLibs: -L`$libdir -lcurl`nLibs.private: -lws2_32 -lwldap32 -lwinmm -lcrypt32`nCflags: -I`$includedir"
             Set-Content -Path $libcurlPc -Value $pkgConfigContent
             Write-Host "Created libcurl.pc at $libcurlPc"
           } else {
@@ -209,10 +209,24 @@ jobs:
             Write-Host "`nChecking curl SSL backend..."
             $curlExe = Join-Path $vcpkgBinDir "curl.exe"
             if (Test-Path $curlExe) {
-              & $curlExe --version
+              try {
+                & $curlExe --version
+              } catch {
+                Write-Host "curl.exe found but version check failed: $($_.Exception.Message)"
+              }
             } else {
-              Write-Host "curl.exe not found, checking with pkg-config..."
-              pkg-config --variable=supported_features libcurl 2>$null
+              Write-Host "curl.exe not found in vcpkg bin (this is normal - vcpkg often only installs libraries)"
+              try {
+                Write-Host "Checking with pkg-config..."
+                $pkgConfigResult = pkg-config --variable=supported_features libcurl 2>&1
+                if ($LASTEXITCODE -eq 0) {
+                  Write-Host "pkg-config result: $pkgConfigResult"
+                } else {
+                  Write-Host "pkg-config check failed (this is OK - we have the DLLs we need)"
+                }
+              } catch {
+                Write-Host "pkg-config check failed (this is OK - we have the DLLs we need): $($_.Exception.Message)"
+              }
             }
             
             # Copy curl and basic dependencies
@@ -331,7 +345,7 @@ jobs:
           try {
             # Use gst-launch with timeout and capture output
             $gstLaunch = Resolve-Path "install-dir/bin/gst-launch-1.0.exe"
-            $output = & $gstLaunch $testPipeline.Split(' ') --timeout=10 2>&1
+            $output = & $gstLaunch ($testPipeline.Split(' ')) --timeout=10 2>&1
             $exitCode = $LASTEXITCODE
             
             Write-Host "Output: $output"
