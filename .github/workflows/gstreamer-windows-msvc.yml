@@ -36,6 +36,60 @@ jobs:
           python -m pip install --upgrade pip
           pip install meson ninja
 
+      # Set up vcpkg for dependency management
+      - name: Setup vcpkg
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Install vcpkg
+        shell: powershell
+        run: |
+          git clone https://github.com/Microsoft/vcpkg.git
+          .\vcpkg\bootstrap-vcpkg.bat
+          echo "VCPKG_ROOT=$PWD\vcpkg" >> $env:GITHUB_ENV
+
+      # Install libcurl via vcpkg
+      - name: Install libcurl
+        shell: powershell
+        run: |
+          .\vcpkg\vcpkg.exe install curl:x64-windows
+          .\vcpkg\vcpkg.exe integrate install
+
+      # Install pkg-config for Windows
+      - name: Install pkg-config
+        shell: powershell
+        run: |
+          choco install pkgconfiglite -y
+
+      # Create pkg-config file for libcurl if needed
+      - name: Setup libcurl pkg-config
+        shell: powershell
+        run: |
+          $pkgConfigDir = "${{ github.workspace }}\vcpkg\installed\x64-windows\lib\pkgconfig"
+          if (-not (Test-Path $pkgConfigDir)) {
+            New-Item -ItemType Directory -Path $pkgConfigDir -Force
+          }
+          
+          $libcurlPc = "$pkgConfigDir\libcurl.pc"
+          if (-not (Test-Path $libcurlPc)) {
+            $vcpkgRoot = "${{ github.workspace }}\vcpkg\installed\x64-windows"
+            $curlVersion = "8.5.0"  # Default version, will be updated if we can detect it
+            
+            # Try to detect curl version from headers
+            $curlHeader = "$vcpkgRoot\include\curl\curlver.h"
+            if (Test-Path $curlHeader) {
+              $versionLine = Select-String -Path $curlHeader -Pattern "#define LIBCURL_VERSION " | Select-Object -First 1
+              if ($versionLine) {
+                $curlVersion = ($versionLine.Line -split '"')[1]
+              }
+            }
+            
+            $pkgConfigContent = "prefix=$vcpkgRoot`nexec_prefix=`${prefix}`nlibdir=`${prefix}/lib`nincludedir=`${prefix}/include`n`nName: libcurl`nDescription: Library for transferring data with URLs`nVersion: $curlVersion`nLibs: -L`${libdir} -lcurl`nLibs.private: -lws2_32 -lwldap32 -lwinmm -lcrypt32`nCflags: -I`${includedir}"
+            Set-Content -Path $libcurlPc -Value $pkgConfigContent
+            Write-Host "Created libcurl.pc at $libcurlPc"
+          } else {
+            Write-Host "libcurl.pc already exists"
+          }
+
       - name: Setup MSVC with Windows SDK
         uses: ilammy/msvc-dev-cmd@v1
         with:
@@ -58,9 +112,25 @@ jobs:
       - name: Configure Meson
         shell: powershell
         env:
-          PKG_CONFIG_PATH: ${{ github.workspace }}\onevpl.devel.win-x64.2023.1.0.43419\lib\native\win-x64\pkgconfig;C:\hostedtoolcache\windows\Python\3.13.2\x64\lib\pkgconfig
+          PKG_CONFIG_PATH: ${{ github.workspace }}\onevpl.devel.win-x64.2023.1.0.43419\lib\native\win-x64\pkgconfig;${{ github.workspace }}\vcpkg\installed\x64-windows\lib\pkgconfig;C:\hostedtoolcache\windows\Python\3.13.2\x64\lib\pkgconfig
+          CMAKE_TOOLCHAIN_FILE: ${{ github.workspace }}\vcpkg\scripts\buildsystems\vcpkg.cmake
         run: |
           Set-Location gstreamer
+          # Verify curl is available
+          pkg-config --exists libcurl
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "libcurl found via pkg-config"
+            pkg-config --modversion libcurl
+            pkg-config --cflags libcurl
+            pkg-config --libs libcurl
+          } else {
+            Write-Host "libcurl not found via pkg-config, checking vcpkg installation..."
+            if (Test-Path "${{ github.workspace }}\vcpkg\installed\x64-windows\include\curl\curl.h") {
+              Write-Host "libcurl headers found in vcpkg"
+            } else {
+              Write-Host "libcurl headers NOT found in vcpkg"
+            }
+          }
           pkg-config --modversion vpl
           meson setup builddir `
             -Dbase=enabled `
@@ -68,6 +138,7 @@ jobs:
             -Dugly=enabled `
             -Dbad=enabled `
             -Dbad:directx=enabled `
+            -Dbad:curl=enabled `
             -Dgpl=enabled `
             -Dgst-plugins-bad:msdk=enabled `
             -Dgst-plugins-bad:nvcodec=enabled `
@@ -80,6 +151,13 @@ jobs:
             -Dauto_features=auto `
             -Dtests=enabled `
             --prefix="$PWD/install-dir"
+
+      # Show build configuration
+      - name: Show Meson Configuration
+        shell: powershell
+        run: |
+          Set-Location gstreamer
+          meson configure builddir | Select-String -Pattern "curl"
 
       # Build GStreamer
       - name: Build GStreamer
@@ -106,6 +184,17 @@ jobs:
           & $gstInspect x264enc
           & $gstInspect mp4mux
           & $gstInspect filesink
+          # Verify curlhttpsink is available
+          Write-Host "Checking for curlhttpsink plugin..."
+          & $gstInspect curlhttpsink
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "curlhttpsink not found, listing available curl plugins..."
+            & $gstInspect | Select-String -Pattern "curl"
+            Write-Host "Listing bad plugins directory..."
+            if (Test-Path "install-dir/lib/gstreamer-1.0") {
+              Get-ChildItem "install-dir/lib/gstreamer-1.0" | Where-Object { $_.Name -like "*curl*" -or $_.Name -like "*bad*" }
+            }
+          }
 
         # Debug: List install-dir contents
       - name: List Install Directory Contents
