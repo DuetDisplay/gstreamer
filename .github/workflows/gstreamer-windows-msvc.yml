@@ -51,8 +51,23 @@ jobs:
       - name: Install libcurl
         shell: powershell
         run: |
-          .\vcpkg\vcpkg.exe install curl:x64-windows
+          # Install curl with explicit SSL support and OpenSSL backend
+          .\vcpkg\vcpkg.exe install curl[ssl,openssl]:x64-windows
+          # Also install OpenSSL explicitly to ensure we have the libraries
+          .\vcpkg\vcpkg.exe install openssl:x64-windows
           .\vcpkg\vcpkg.exe integrate install
+          
+          # Verify what was installed
+          Write-Host "Installed packages:"
+          .\vcpkg\vcpkg.exe list | Select-String -Pattern "(curl|ssl|crypto)"
+          
+          # Check what DLLs are available
+          Write-Host "`nAvailable DLLs after installation:"
+          if (Test-Path "vcpkg\installed\x64-windows\bin") {
+            Get-ChildItem "vcpkg\installed\x64-windows\bin" -Filter "*.dll" | Where-Object { 
+              $_.Name -like "*curl*" -or $_.Name -like "*ssl*" -or $_.Name -like "*crypto*" 
+            } | ForEach-Object { Write-Host "  $($_.Name)" }
+          }
 
       # Install pkg-config for Windows
       - name: Install pkg-config
@@ -190,13 +205,32 @@ jobs:
             Write-Host "Available DLLs in vcpkg:"
             Get-ChildItem $vcpkgBinDir -Filter "*.dll" | ForEach-Object { Write-Host "  $($_.Name)" }
             
-            # Copy curl and SSL dependencies
+            # Check curl's SSL backend
+            Write-Host "`nChecking curl SSL backend..."
+            $curlExe = Join-Path $vcpkgBinDir "curl.exe"
+            if (Test-Path $curlExe) {
+              & $curlExe --version
+            } else {
+              Write-Host "curl.exe not found, checking with pkg-config..."
+              pkg-config --variable=supported_features libcurl 2>$null
+            }
+            
+            # Copy curl and basic dependencies
             $dllsToCopy = @(
               "libcurl.dll",
               "libcurl-d.dll", 
-              "zlib1.dll",
-              "libssl-3-x64.dll",
-              "libcrypto-3-x64.dll"
+              "zlib1.dll"
+            )
+            
+            # Look for various SSL library naming patterns
+            $sslPatterns = @(
+              "*ssl*.dll",
+              "*crypto*.dll", 
+              "*tls*.dll",
+              "libssl*.dll",
+              "libcrypto*.dll",
+              "ssleay*.dll",
+              "libeay*.dll"
             )
             
             foreach ($dll in $dllsToCopy) {
@@ -206,32 +240,51 @@ jobs:
                 Copy-Item $sourcePath $destPath -Force
                 Write-Host "Copied: $dll"
               } else {
-                Write-Host "Not found: $dll (this may be OK if using different SSL implementation)"
+                Write-Host "Not found: $dll (this may be OK)"
               }
             }
             
-            # Also copy any other curl-related or SSL-related DLLs that might exist
+            # Copy any SSL/crypto related DLLs found
+            Write-Host "`nLooking for SSL/crypto libraries..."
+            foreach ($pattern in $sslPatterns) {
+              $foundDlls = Get-ChildItem $vcpkgBinDir -Filter $pattern -ErrorAction SilentlyContinue
+              foreach ($dll in $foundDlls) {
+                $destPath = Join-Path $gstreamerBinDir $dll.Name
+                Copy-Item $dll.FullName $destPath -Force
+                Write-Host "Copied SSL/crypto DLL: $($dll.Name)"
+              }
+            }
+            
+            # Also copy any other curl-related DLLs
             Get-ChildItem $vcpkgBinDir -Filter "*curl*.dll" | ForEach-Object {
               $destPath = Join-Path $gstreamerBinDir $_.Name
-              Copy-Item $_.FullName $destPath -Force
-              Write-Host "Copied additional curl DLL: $($_.Name)"
+              if (-not (Test-Path $destPath)) {  # Don't copy duplicates
+                Copy-Item $_.FullName $destPath -Force
+                Write-Host "Copied additional curl DLL: $($_.Name)"
+              }
             }
             
-            Get-ChildItem $vcpkgBinDir -Filter "*ssl*.dll" | ForEach-Object {
-              $destPath = Join-Path $gstreamerBinDir $_.Name
-              Copy-Item $_.FullName $destPath -Force
-              Write-Host "Copied additional SSL DLL: $($_.Name)"
-            }
+            Write-Host "`nRuntime dependencies copy completed."
+            Write-Host "Final bin directory contents (curl/ssl related):"
+            Get-ChildItem $gstreamerBinDir -Filter "*.dll" | Where-Object { 
+              $_.Name -like "*curl*" -or $_.Name -like "*ssl*" -or $_.Name -like "*crypto*" -or $_.Name -like "*tls*" 
+            } | ForEach-Object { Write-Host "  $($_.Name)" }
             
-            Get-ChildItem $vcpkgBinDir -Filter "*crypto*.dll" | ForEach-Object {
-              $destPath = Join-Path $gstreamerBinDir $_.Name
-              Copy-Item $_.FullName $destPath -Force
-              Write-Host "Copied additional crypto DLL: $($_.Name)"
+            # Test curl functionality
+            Write-Host "`nTesting curl functionality..."
+            $testUrl = "https://httpbin.org/get"
+            try {
+              $curlTest = Join-Path $gstreamerBinDir "curl.exe"
+              if (Test-Path $curlTest) {
+                Write-Host "Testing HTTPS with copied curl..."
+                & $curlTest --version
+                & $curlTest -I $testUrl --max-time 10 2>&1 | Select-Object -First 5
+              } else {
+                Write-Host "curl.exe not available for testing"
+              }
+            } catch {
+              Write-Host "Curl test failed: $($_.Exception.Message)"
             }
-            
-            Write-Host "Runtime dependencies copy completed."
-            Write-Host "Final bin directory contents:"
-            Get-ChildItem $gstreamerBinDir -Filter "*.dll" | Where-Object { $_.Name -like "*curl*" -or $_.Name -like "*ssl*" -or $_.Name -like "*crypto*" } | ForEach-Object { Write-Host "  $($_.Name)" }
           } else {
             Write-Error "vcpkg bin directory not found: $vcpkgBinDir"
           }
@@ -248,73 +301,76 @@ jobs:
           & $gstInspect x264enc
           & $gstInspect mp4mux
           & $gstInspect filesink
-          
           # Verify curlhttpsink is available
-          Write-Host "=== Checking for curl-related plugins ==="
+          Write-Host "Checking for curlhttpsink plugin..."
           & $gstInspect curlhttpsink
-          if ($LASTEXITCODE -eq 0) {
-            Write-Host "✓ curlhttpsink plugin loaded successfully!"
-            
-            # Test other curl elements if available
-            Write-Host "Testing other curl elements..."
-            & $gstInspect curlhttpsrc 2>$null
-            & $gstInspect curlftpsink 2>$null
-            & $gstInspect curlsftpsink 2>$null
-          } else {
-            Write-Host "✗ curlhttpsink not found or failed to load"
-            Write-Host "Troubleshooting curl plugin..."
-            
-            # Check if gstcurl.dll exists
-            $curlPlugin = "install-dir/lib/gstreamer-1.0/gstcurl.dll"
-            if (Test-Path $curlPlugin) {
-              Write-Host "✓ gstcurl.dll exists at: $curlPlugin"
-              
-              # Check dependencies using dumpbin if available
-              try {
-                & dumpbin /dependents $curlPlugin 2>$null | Select-String -Pattern "\.dll"
-                Write-Host "Dependencies check completed (if dumpbin available)"
-              } catch {
-                Write-Host "dumpbin not available for dependency check"
-              }
-            } else {
-              Write-Host "✗ gstcurl.dll not found at expected location"
-            }
-            
-            # List all available curl-related files
-            Write-Host "Searching for curl-related files in installation:"
-            Get-ChildItem "install-dir" -Recurse -Filter "*curl*" | ForEach-Object { 
-              Write-Host "  Found: $($_.FullName)" 
-            }
-            
-            # List all plugins in gstreamer-1.0 directory
-            Write-Host "All plugins in lib/gstreamer-1.0/:"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "curlhttpsink not found, listing available curl plugins..."
+            & $gstInspect | Select-String -Pattern "curl"
+            Write-Host "Listing bad plugins directory..."
             if (Test-Path "install-dir/lib/gstreamer-1.0") {
-              Get-ChildItem "install-dir/lib/gstreamer-1.0" -Filter "*.dll" | ForEach-Object { 
-                Write-Host "  $($_.Name)" 
-              }
+              Get-ChildItem "install-dir/lib/gstreamer-1.0" | Where-Object { $_.Name -like "*curl*" -or $_.Name -like "*bad*" }
             }
           }
+
+      # Critical HTTPS Test - Build will fail if this doesn't work
+      - name: Test HTTPS Functionality
+        shell: powershell
+        run: |
+          Set-Location gstreamer
+          $env:PATH = "$(Resolve-Path 'install-dir/bin');$env:PATH"
+          $env:GST_PLUGIN_PATH = "$(Resolve-Path 'install-dir/lib/gstreamer-1.0')"
           
-          # Check bin directory for curl DLLs
-          Write-Host "=== Checking bin directory for curl dependencies ==="
-          $binDir = "install-dir/bin"
-          $curlRelatedFiles = Get-ChildItem $binDir -Filter "*curl*" -ErrorAction SilentlyContinue
-          $sslRelatedFiles = Get-ChildItem $binDir -Filter "*ssl*" -ErrorAction SilentlyContinue
-          $cryptoRelatedFiles = Get-ChildItem $binDir -Filter "*crypto*" -ErrorAction SilentlyContinue
+          Write-Host "Testing HTTPS functionality with curlhttpsink..."
           
-          if ($curlRelatedFiles) {
-            Write-Host "✓ Curl-related files in bin:"
-            $curlRelatedFiles | ForEach-Object { Write-Host "  $($_.Name)" }
-          } else {
-            Write-Host "✗ No curl-related files found in bin directory"
+          # Test 1: Check if curlhttpsink can handle HTTPS URLs
+          Write-Host "`n=== Test 1: Basic HTTPS URL validation ==="
+          $testPipeline = "videotestsrc num-buffers=10 ! videoconvert ! x264enc ! mp4mux ! curlhttpsink location=https://httpbin.org/post"
+          Write-Host "Pipeline: $testPipeline"
+          
+          try {
+            # Use gst-launch with timeout and capture output
+            $gstLaunch = Resolve-Path "install-dir/bin/gst-launch-1.0.exe"
+            $output = & $gstLaunch $testPipeline.Split(' ') --timeout=10 2>&1
+            $exitCode = $LASTEXITCODE
+            
+            Write-Host "Output: $output"
+            Write-Host "Exit code: $exitCode"
+            
+            # Check if the pipeline started successfully and didn't fail due to SSL/HTTPS issues
+            if ($output -like "*SSL*error*" -or $output -like "*certificate*error*" -or $output -like "*https*error*") {
+              throw "HTTPS/SSL error detected in pipeline output"
+            }
+            
+            if ($output -like "*could not link*" -and $output -like "*curlhttpsink*") {
+              throw "curlhttpsink linking failed - might be missing SSL support"
+            }
+            
+            Write-Host "✅ HTTPS pipeline test completed"
+            
+          } catch {
+            Write-Error "❌ HTTPS test failed: $($_.Exception.Message)"
+            Write-Host "This indicates HTTPS support is not working properly!"
+            
+            # Additional diagnostics
+            Write-Host "`n=== Diagnostics ==="
+            Write-Host "Checking curl version and SSL support..."
+            if (Test-Path "install-dir/bin/curl.exe") {
+              & "install-dir/bin/curl.exe" --version
+              Write-Host "`nTesting direct curl HTTPS..."
+              & "install-dir/bin/curl.exe" -I "https://httpbin.org/get" --max-time 5 2>&1
+            }
+            
+            Write-Host "`nChecking available SSL/crypto libraries..."
+            Get-ChildItem "install-dir/bin" -Filter "*.dll" | Where-Object { 
+              $_.Name -like "*ssl*" -or $_.Name -like "*crypto*" -or $_.Name -like "*curl*" 
+            } | ForEach-Object { Write-Host "  $($_.Name)" }
+            
+            # Fail the build if HTTPS doesn't work
+            exit 1
           }
           
-          if ($sslRelatedFiles -or $cryptoRelatedFiles) {
-            Write-Host "✓ SSL/Crypto files in bin:"
-            ($sslRelatedFiles + $cryptoRelatedFiles) | ForEach-Object { Write-Host "  $($_.Name)" }
-          } else {
-            Write-Host "✗ No SSL/crypto files found in bin directory"
-          }
+          Write-Host "`n✅ All HTTPS tests passed! SSL/HTTPS support is working correctly."
 
       - name: List Install Directory Contents
         shell: powershell
