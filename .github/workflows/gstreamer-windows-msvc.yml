@@ -316,7 +316,6 @@ jobs:
             Write-Host "✗ No SSL/crypto files found in bin directory"
           }
 
-        # Debug: List install-dir contents
       - name: List Install Directory Contents
         shell: powershell
         run: |
