@@ -72,6 +72,7 @@ jobs:
             -Dgst-plugins-bad:msdk=enabled `
             -Dgst-plugins-bad:nvcodec=enabled `
             -Dpython=disabled `
+            -Dlibxml2:python=disabled `
             -Ddevtools=disabled `
             -Ddoc=disabled `
             -Dexamples=disabled `
