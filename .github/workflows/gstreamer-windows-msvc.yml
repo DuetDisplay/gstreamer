@@ -36,75 +36,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install meson ninja
 
-      # Set up vcpkg for dependency management
-      - name: Setup vcpkg
-        uses: microsoft/setup-msbuild@v2
-
-      - name: Install vcpkg
-        shell: powershell
-        run: |
-          git clone https://github.com/Microsoft/vcpkg.git
-          .\vcpkg\bootstrap-vcpkg.bat
-          echo "VCPKG_ROOT=$PWD\vcpkg" >> $env:GITHUB_ENV
-
-      # Install libcurl via vcpkg
-      - name: Install libcurl
-        shell: powershell
-        run: |
-          # Install curl with explicit SSL support and OpenSSL backend
-          .\vcpkg\vcpkg.exe install curl[ssl,openssl]:x64-windows
-          # Also install OpenSSL explicitly to ensure we have the libraries
-          .\vcpkg\vcpkg.exe install openssl:x64-windows
-          .\vcpkg\vcpkg.exe integrate install
-          
-          # Verify what was installed
-          Write-Host "Installed packages:"
-          .\vcpkg\vcpkg.exe list | Select-String -Pattern "(curl|ssl|crypto)"
-          
-          # Check what DLLs are available
-          Write-Host "`nAvailable DLLs after installation:"
-          if (Test-Path "vcpkg\installed\x64-windows\bin") {
-            Get-ChildItem "vcpkg\installed\x64-windows\bin" -Filter "*.dll" | Where-Object { 
-              $_.Name -like "*curl*" -or $_.Name -like "*ssl*" -or $_.Name -like "*crypto*" 
-            } | ForEach-Object { Write-Host "  $($_.Name)" }
-          }
-
-      # Install pkg-config for Windows
-      - name: Install pkg-config
-        shell: powershell
-        run: |
-          choco install pkgconfiglite -y
-
-      # Create pkg-config file for libcurl if needed
-      - name: Setup libcurl pkg-config
-        shell: powershell
-        run: |
-          $pkgConfigDir = "${{ github.workspace }}\vcpkg\installed\x64-windows\lib\pkgconfig"
-          if (-not (Test-Path $pkgConfigDir)) {
-            New-Item -ItemType Directory -Path $pkgConfigDir -Force
-          }
-          
-          $libcurlPc = "$pkgConfigDir\libcurl.pc"
-          if (-not (Test-Path $libcurlPc)) {
-            $vcpkgRoot = "${{ github.workspace }}\vcpkg\installed\x64-windows"
-            $curlVersion = "8.5.0"  # Default version, will be updated if we can detect it
-            
-            # Try to detect curl version from headers
-            $curlHeader = "$vcpkgRoot\include\curl\curlver.h"
-            if (Test-Path $curlHeader) {
-              $versionLine = Select-String -Path $curlHeader -Pattern "#define LIBCURL_VERSION " | Select-Object -First 1
-              if ($versionLine) {
-                $curlVersion = ($versionLine.Line -split '"')[1]
-              }
-            }
-            
-            $pkgConfigContent = "prefix=$vcpkgRoot`nexec_prefix=`$prefix`nlibdir=`$prefix/lib`nincludedir=`$prefix/include`n`nName: libcurl`nDescription: Library for transferring data with URLs`nVersion: $curlVersion`nLibs: -L`$libdir -lcurl`nLibs.private: -lws2_32 -lwldap32 -lwinmm -lcrypt32`nCflags: -I`$includedir"
-            Set-Content -Path $libcurlPc -Value $pkgConfigContent
-            Write-Host "Created libcurl.pc at $libcurlPc"
-          } else {
-            Write-Host "libcurl.pc already exists"
-          }
-
       - name: Setup MSVC with Windows SDK
         uses: ilammy/msvc-dev-cmd@v1
         with:
@@ -127,25 +58,9 @@ jobs:
       - name: Configure Meson
         shell: powershell
         env:
-          PKG_CONFIG_PATH: ${{ github.workspace }}\onevpl.devel.win-x64.2023.1.0.43419\lib\native\win-x64\pkgconfig;${{ github.workspace }}\vcpkg\installed\x64-windows\lib\pkgconfig;C:\hostedtoolcache\windows\Python\3.13.2\x64\lib\pkgconfig
-          CMAKE_TOOLCHAIN_FILE: ${{ github.workspace }}\vcpkg\scripts\buildsystems\vcpkg.cmake
+          PKG_CONFIG_PATH: ${{ github.workspace }}\onevpl.devel.win-x64.2023.1.0.43419\lib\native\win-x64\pkgconfig;C:\hostedtoolcache\windows\Python\3.13.2\x64\lib\pkgconfig
         run: |
           Set-Location gstreamer
-          # Verify curl is available
-          pkg-config --exists libcurl
-          if ($LASTEXITCODE -eq 0) {
-            Write-Host "libcurl found via pkg-config"
-            pkg-config --modversion libcurl
-            pkg-config --cflags libcurl
-            pkg-config --libs libcurl
-          } else {
-            Write-Host "libcurl not found via pkg-config, checking vcpkg installation..."
-            if (Test-Path "${{ github.workspace }}\vcpkg\installed\x64-windows\include\curl\curl.h") {
-              Write-Host "libcurl headers found in vcpkg"
-            } else {
-              Write-Host "libcurl headers NOT found in vcpkg"
-            }
-          }
           pkg-config --modversion vpl
           meson setup builddir `
             -Dbase=enabled `
@@ -153,12 +68,10 @@ jobs:
             -Dugly=enabled `
             -Dbad=enabled `
             -Dbad:directx=enabled `
-            -Dbad:curl=enabled `
             -Dgpl=enabled `
             -Dgst-plugins-bad:msdk=enabled `
             -Dgst-plugins-bad:nvcodec=enabled `
             -Dpython=disabled `
-            -Dlibxml2:python=disabled `
             -Ddevtools=disabled `
             -Ddoc=disabled `
             -Dexamples=disabled `
@@ -167,13 +80,6 @@ jobs:
             -Dauto_features=auto `
             -Dtests=enabled `
             --prefix="$PWD/install-dir"
-
-      # Show build configuration
-      - name: Show Meson Configuration
-        shell: powershell
-        run: |
-          Set-Location gstreamer
-          meson configure builddir | Select-String -Pattern "curl"
 
       # Build GStreamer
       - name: Build GStreamer
@@ -188,107 +94,6 @@ jobs:
           ninja -C builddir install
           if ($LASTEXITCODE -ne 0) { throw "Install failed with exit code $LASTEXITCODE" }
 
-      # Copy curl runtime dependencies from vcpkg
-      - name: Copy Curl Runtime Dependencies
-        shell: powershell
-        run: |
-          Set-Location gstreamer
-          $vcpkgBinDir = "${{ github.workspace }}\vcpkg\installed\x64-windows\bin"
-          $gstreamerBinDir = "install-dir\bin"
-          
-          Write-Host "Copying curl runtime dependencies..."
-          Write-Host "Source: $vcpkgBinDir"
-          Write-Host "Destination: $gstreamerBinDir"
-          
-          # List available DLLs in vcpkg bin directory
-          if (Test-Path $vcpkgBinDir) {
-            Write-Host "Available DLLs in vcpkg:"
-            Get-ChildItem $vcpkgBinDir -Filter "*.dll" | ForEach-Object { Write-Host "  $($_.Name)" }
-            
-            # Check curl's SSL backend
-            Write-Host "`nChecking curl SSL backend..."
-            $curlExe = Join-Path $vcpkgBinDir "curl.exe"
-            if (Test-Path $curlExe) {
-              try {
-                & $curlExe --version
-              } catch {
-                Write-Host "curl.exe found but version check failed: $($_.Exception.Message)"
-              }
-            } else {
-              Write-Host "curl.exe not found in vcpkg bin (this is normal - vcpkg often only installs libraries)"
-              try {
-                Write-Host "Checking with pkg-config..."
-                $pkgConfigResult = pkg-config --variable=supported_features libcurl 2>&1
-                if ($LASTEXITCODE -eq 0) {
-                  Write-Host "pkg-config result: $pkgConfigResult"
-                } else {
-                  Write-Host "pkg-config check failed (this is OK - we have the DLLs we need)"
-                }
-              } catch {
-                Write-Host "pkg-config check failed (this is OK - we have the DLLs we need): $($_.Exception.Message)"
-              }
-            }
-            
-            # Copy curl and basic dependencies
-            $dllsToCopy = @(
-              "libcurl.dll",
-              "libcurl-d.dll", 
-              "zlib1.dll"
-            )
-            
-            # Look for various SSL library naming patterns
-            $sslPatterns = @(
-              "*ssl*.dll",
-              "*crypto*.dll", 
-              "*tls*.dll",
-              "libssl*.dll",
-              "libcrypto*.dll",
-              "ssleay*.dll",
-              "libeay*.dll"
-            )
-            
-            foreach ($dll in $dllsToCopy) {
-              $sourcePath = Join-Path $vcpkgBinDir $dll
-              if (Test-Path $sourcePath) {
-                $destPath = Join-Path $gstreamerBinDir $dll
-                Copy-Item $sourcePath $destPath -Force
-                Write-Host "Copied: $dll"
-              } else {
-                Write-Host "Not found: $dll (this may be OK)"
-              }
-            }
-            
-            # Copy any SSL/crypto related DLLs found
-            Write-Host "`nLooking for SSL/crypto libraries..."
-            foreach ($pattern in $sslPatterns) {
-              $foundDlls = Get-ChildItem $vcpkgBinDir -Filter $pattern -ErrorAction SilentlyContinue
-              foreach ($dll in $foundDlls) {
-                $destPath = Join-Path $gstreamerBinDir $dll.Name
-                Copy-Item $dll.FullName $destPath -Force
-                Write-Host "Copied SSL/crypto DLL: $($dll.Name)"
-              }
-            }
-            
-            # Also copy any other curl-related DLLs
-            Get-ChildItem $vcpkgBinDir -Filter "*curl*.dll" | ForEach-Object {
-              $destPath = Join-Path $gstreamerBinDir $_.Name
-              if (-not (Test-Path $destPath)) {  # Don't copy duplicates
-                Copy-Item $_.FullName $destPath -Force
-                Write-Host "Copied additional curl DLL: $($_.Name)"
-              }
-            }
-            
-            Write-Host "`nRuntime dependencies copy completed."
-            Write-Host "Final bin directory contents (curl/ssl related):"
-            Get-ChildItem $gstreamerBinDir -Filter "*.dll" | Where-Object { 
-              $_.Name -like "*curl*" -or $_.Name -like "*ssl*" -or $_.Name -like "*crypto*" -or $_.Name -like "*tls*" 
-            } | ForEach-Object { Write-Host "  $($_.Name)" }
-            
-          } else {
-            Write-Error "vcpkg bin directory not found: $vcpkgBinDir"
-          }
-          exit 0
-
       # Verify installed tools
       - name: Verify Install
         shell: powershell
@@ -301,17 +106,6 @@ jobs:
           & $gstInspect x264enc
           & $gstInspect mp4mux
           & $gstInspect filesink
-          # Verify curlhttpsink is available
-          Write-Host "Checking for curlhttpsink plugin..."
-          & $gstInspect curlhttpsink
-          if ($LASTEXITCODE -ne 0) {
-            Write-Host "curlhttpsink not found, listing available curl plugins..."
-            & $gstInspect | Select-String -Pattern "curl"
-            Write-Host "Listing bad plugins directory..."
-            if (Test-Path "install-dir/lib/gstreamer-1.0") {
-              Get-ChildItem "install-dir/lib/gstreamer-1.0" | Where-Object { $_.Name -like "*curl*" -or $_.Name -like "*bad*" }
-            }
-          }
 
       - name: List Install Directory Contents
         shell: powershell
