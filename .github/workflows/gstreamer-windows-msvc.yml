@@ -284,21 +284,6 @@ jobs:
               $_.Name -like "*curl*" -or $_.Name -like "*ssl*" -or $_.Name -like "*crypto*" -or $_.Name -like "*tls*" 
             } | ForEach-Object { Write-Host "  $($_.Name)" }
             
-            # Test curl functionality
-            Write-Host "`nTesting curl functionality..."
-            $testUrl = "https://httpbin.org/get"
-            try {
-              $curlTest = Join-Path $gstreamerBinDir "curl.exe"
-              if (Test-Path $curlTest) {
-                Write-Host "Testing HTTPS with copied curl..."
-                & $curlTest --version
-                & $curlTest -I $testUrl --max-time 10 2>&1 | Select-Object -First 5
-              } else {
-                Write-Host "curl.exe not available for testing"
-              }
-            } catch {
-              Write-Host "Curl test failed: $($_.Exception.Message)"
-            }
           } else {
             Write-Error "vcpkg bin directory not found: $vcpkgBinDir"
           }
