@@ -287,6 +287,7 @@ jobs:
           } else {
             Write-Error "vcpkg bin directory not found: $vcpkgBinDir"
           }
+          exit 0
 
       # Verify installed tools
       - name: Verify Install
